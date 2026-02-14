@@ -1,0 +1,15 @@
+[global]
+keyboard = "es"
+country = "es"
+fqdn = "{{ item }}.homelab"
+mailto = "{{ pve_email }}"
+timezone = "Europe/Madrid"
+root-password = "{{ pve_root_password }}"
+root-ssh-keys = ["{{ pve_ssh_key }}"]
+
+[network]
+source = "from-dhcp"
+
+[disk-setup]
+filesystem = "ext4"
+filter.ID_MODEL = "{{ hostvars[item].disk_model }}"

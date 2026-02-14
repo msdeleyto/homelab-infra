@@ -1,0 +1,16 @@
+[global]
+keyboard = "es"
+country = "es"
+fqdn = "{{ item }}.homelab"
+mailto = "{{ pve_email }}"
+timezone = "Europe/Madrid"
+root-password = "{{ pve_root_password }}"
+root-ssh-keys = ["{{ pve_ssh_key }}"]
+reboot-mode = "power-off"
+
+[network]
+source = "from-dhcp"
+
+[disk-setup]
+filesystem = "ext4"
+disk-list = ["vda"]
