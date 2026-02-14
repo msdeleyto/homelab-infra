@@ -1,0 +1,8 @@
+.vscode/
+.venv
+**/*.tfvars
+**/*.lock.hcl
+**/*.tfstate*
+**/.terraform
+**/secrets.yaml
+**/secret_files/**/*
