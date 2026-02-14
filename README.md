@@ -32,3 +32,10 @@ ansible-playbook -i inventory/$ENV/hosts.yaml playbooks/cluster/restore.yaml
 ```
 
 `ENV` could be `test` or `prod`.
+
+# Requirements
+
+```
+ansible
+ansible-lint
+```

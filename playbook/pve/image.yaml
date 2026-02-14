@@ -48,7 +48,11 @@
       loop: "{{ groups['pves'] }}"
 
     - name: Run the Proxmox Auto Install Assistant to prepare the ISO
-      ansible.builtin.command: 'proxmox-auto-install-assistant prepare-iso /tmp/pve_{{ item }}.iso --fetch-from iso --answer-file /tmp/answer_{{ item }}.toml --output /tmp/pve_{{ item }}_auto.iso'
+      ansible.builtin.command: |
+        proxmox-auto-install-assistant prepare-iso /tmp/pve_'{{ item }}'.iso \
+          --fetch-from iso \
+          --answer-file /tmp/answer_'{{ item }}'.toml \
+          --output /tmp/pve_'{{ item }}'_auto.iso
       loop: "{{ groups['pves'] }}"
       register: output
       changed_when: output.rc != 0

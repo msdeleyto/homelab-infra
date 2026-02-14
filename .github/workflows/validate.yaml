@@ -36,7 +36,7 @@ jobs:
         VAULT_PASSWORD: ${{ secrets.ANSIBLE_AUTH }}
 
     - name: Run ansible-lint
-      run: ansible-lint ansible/playbooks/**/*.yaml
+      run: ansible-lint playbook/**/*.yaml
 
     - name: Set up Terraform
       uses: hashicorp/setup-terraform@v3
