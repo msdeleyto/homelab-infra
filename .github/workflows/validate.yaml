@@ -11,8 +11,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  validate-ansible-and-terraform:
-    name: Validate Ansible and Terraform
+  validate-ansible:
+    name: Validate Ansible
     runs-on: ubuntu-latest
     steps:
     - name: Checkout repository
@@ -29,14 +29,18 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements.txt
 
-    - name: Prepare vault file
-      run: |
-        echo "${VAULT_PASSWORD}" > .vault
-      env:
-        VAULT_PASSWORD: ${{ secrets.ANSIBLE_AUTH }}
-
     - name: Run ansible-lint
       run: ansible-lint playbook/**/*.yaml
+
+  validate-terraform:
+    name: Validate Terraform
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        project: [pve]
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v5
 
     - name: Set up Terraform
       uses: hashicorp/setup-terraform@v3
@@ -45,8 +49,8 @@ jobs:
 
     - name: Initialize Terraform
       run: terraform init
-      working-directory: terraform
+      working-directory: playbook/${{ matrix.project }}/terraform
 
     - name: Validate Terraform
       run: terraform validate
-      working-directory: terraform
+      working-directory: playbook/${{ matrix.project }}/terraform
