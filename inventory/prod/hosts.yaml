@@ -1,0 +1,88 @@
+pve_main:
+  hosts:
+    pve01:
+      ansible_host: 192.168.10.2
+      ansible_user: root
+      network_interface: enp1s0
+      disk_model: KIOXIA*
+      vm_template_id: 9000
+pve_workers:
+  hosts:
+    pve02:
+      ansible_host: 192.168.10.3
+      ansible_user: root
+      network_interface: enp3s0
+      disk_model: AirDisk*
+      vm_template_id: 9001
+pves:
+  children:
+    pve_main:
+    pve_workers:
+cp_nodes:
+  hosts:
+    c01:
+      ansible_host: 192.168.10.50
+      ansible_user: ubuntu
+      proxmox_node: pve01
+      role: cp
+      size: cp
+      memory: 4096
+      cores: 2
+      main_disk_size: 64G
+      net_disk_size: 128G
+      mac_address: 02:00:00:09:E6:16
+      ipconfig: ip=192.168.10.50/24,gw=192.168.10.1
+    c02:
+      ansible_host: 192.168.10.51
+      ansible_user: ubuntu
+      proxmox_node: pve01
+      role: cp
+      size: cp
+      memory: 4096
+      cores: 2
+      main_disk_size: 64G
+      net_disk_size: 128G
+      mac_address: 02:00:00:09:E6:17
+      ipconfig: ip=192.168.10.51/24,gw=192.168.10.1
+    c03:
+      ansible_host: 192.168.10.52
+      ansible_user: ubuntu
+      proxmox_node: pve02
+      role: cp
+      size: cp
+      memory: 4096
+      cores: 2
+      main_disk_size: 64G
+      net_disk_size: 128G
+      mac_address: 02:00:00:09:E6:18
+      ipconfig: ip=192.168.10.52/24,gw=192.168.10.1
+worker_nodes:
+  hosts:
+    n01:
+      ansible_host: 192.168.10.60
+      ansible_user: ubuntu
+      proxmox_node: pve01
+      role: worker
+      size: worker
+      memory: 20480
+      cores: 10
+      main_disk_size: 64G
+      net_disk_size: 128G
+      mac_address: 02:00:00:D2:EC:4F
+      ipconfig: ip=192.168.10.60/24,gw=192.168.10.1
+    n02:
+      ansible_host: 192.168.10.61
+      ansible_user: ubuntu
+      proxmox_node: pve02
+      role: worker
+      size: worker
+      memory: 20480
+      cores: 10
+      main_disk_size: 64G
+      net_disk_size: 128G
+      mac_address: 02:00:00:D2:EC:50
+      ipconfig: ip=192.168.10.61/24,gw=192.168.10.1
+nodes:
+  children:
+    cp_nodes:
+    worker_nodes:

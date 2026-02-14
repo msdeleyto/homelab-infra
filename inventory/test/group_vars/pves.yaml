@@ -1,0 +1,28 @@
+apt_packages:
+- sudo
+- libguestfs-tools
+- moreutils
+- sshpass
+- expect
+- wakeonlan
+- python3-pip
+pip_packages:
+- proxmoxer==2.2.0
+- pexpect
+user:
+  name: admin
+  groups:
+  - sudo
+  uid: 1000
+  proxmox:
+    api_user: admin@pve
+    api_group: admins
+cluster_name: homelab
+vm:
+  image_url: https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img
+  image_file: /tmp/noble-server-cloudimg-amd64.img
+  template_name: cloudinit-template
+  storage: local-lvm
+  memory: 2048
+  cores: 2
+  username: ubuntu

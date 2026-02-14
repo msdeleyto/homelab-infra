@@ -1,0 +1,2 @@
+env: test
+pve_network_ip: 192.168.122.1 # Only needed for test environment
