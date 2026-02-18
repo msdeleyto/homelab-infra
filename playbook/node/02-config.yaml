@@ -18,6 +18,7 @@
       ansible.builtin.systemd_service:
         name: iscsid
         enabled: true
+        state: started
         masked: no
       become_user: root
 
