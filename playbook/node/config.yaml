@@ -1,0 +1,243 @@
+---
+- name: Configure VM nodes
+  hosts: nodes
+  tasks:
+    - name: Install nfs-kernel-server for the control plane node
+      ansible.builtin.apt:
+        name: nfs-kernel-server
+        state: present
+      become: true
+      become_user: root
+      when: inventory_hostname == 'c01'
+
+    - name: Install apt packages
+      ansible.builtin.apt:
+        name:
+          - sudo
+          - curl
+          - git
+          - nfs-common
+        state: present
+        update_cache: true
+      become: true
+      become_user: root
+
+    - name: Download k3s install script
+      ansible.builtin.get_url:
+        url: https://get.k3s.io
+        dest: "/tmp/install_k3s.sh"
+        mode: '0770'
+
+    - name: Install k3s on the control plane node
+      ansible.builtin.command: sh /tmp/install_k3s.sh
+      when: inventory_hostname == 'c01'
+      environment:
+        INSTALL_K3S_VERSION: '{{ k3s_version }}'
+        INSTALL_K3S_EXEC: "server --disable=traefik"
+        K3S_TOKEN: "{{ k3s_token }}"
+      register: output
+      changed_when: output.rc != 0
+
+- name: Install k3s on the worker nodes
+  hosts: worker_nodes
+  become: true
+  become_user: root
+  tasks:
+    - name: Install k3s on the worker nodes
+      ansible.builtin.command: sh /tmp/install_k3s.sh
+      environment:
+        INSTALL_K3S_VERSION: '{{ k3s_version }}'
+        INSTALL_K3S_EXEC: agent
+        K3S_URL: "https://{{ hostvars['n01']['ansible_host'] }}:6443"
+        K3S_TOKEN: "{{ k3s_token }}"
+      register: output
+      changed_when: output.rc != 0
+
+- name: Configure the control plane
+  hosts: c01
+  become: true
+  become_user: root
+  tasks:
+    - name: Transfer the cluster's certificate authority to localhost
+      ansible.builtin.fetch:
+        src: /var/lib/rancher/k3s/server/tls/server-ca.crt
+        dest: "{{ lookup('env', 'HOME') }}/.kube/{{ env }}/ca.crt"
+        flat: true
+
+    - name: Transfer the cluster's admin user client certificate to localhost
+      ansible.builtin.fetch:
+        src: /var/lib/rancher/k3s/server/tls/client-admin.crt
+        dest: "{{ lookup('env', 'HOME') }}/.kube/{{ env }}/admin.crt"
+        flat: true
+
+    - name: Transfer the cluster's admin user client key to localhost
+      ansible.builtin.fetch:
+        src: /var/lib/rancher/k3s/server/tls/client-admin.key
+        dest: "{{ lookup('env', 'HOME') }}/.kube/{{ env }}/admin.key"
+        flat: true
+
+    - name: Create the traefik log directory
+      ansible.builtin.file:
+        path: /var/log/traefik
+        state: directory
+        owner: ubuntu
+        group: ubuntu
+        mode: '0755'
+
+    - name: Create the NFS server directory
+      ansible.builtin.file:
+        path: /srv/nfs/k8s
+        state: directory
+        owner: nobody
+        group: nogroup
+        mode: '0777'
+
+    - name: Export the NFS directory for vms
+      ansible.builtin.template:
+        src: templates/nfs-exports.j2
+        dest: /etc/exports
+        mode: '0600'
+
+    - name: Reload NFS exports
+      ansible.builtin.command: exportfs -ra
+      register: output
+      changed_when: output.rc != 0
+
+    - name: Restart the NFS server
+      ansible.builtin.service:
+        name: nfs-kernel-server
+        state: restarted
+
+- name: Configure the worker nodes
+  hosts: worker_nodes
+  become: true
+  become_user: root
+  tasks:
+    - name: Create the NFS directory
+      ansible.builtin.file:
+        path: /mnt/nfs/k8s
+        state: directory
+        mode: '0644'
+
+    - name: Mount NFS volumes with noauto according to boot option
+      ansible.posix.mount:
+        src: "{{ hostvars['c01'].ansible_host }}:/srv/nfs/k8s"
+        path: /mnt/nfs/k8s
+        opts: defaults,_netdev
+        boot: true
+        state: mounted
+        fstype: nfs
+
+- name: Set kubectl context for the new cluster
+  hosts: localhost
+  tasks:
+    - name: Set kubectl cluster for the new cluster
+      ansible.builtin.command: "kubectl config set-cluster {{ env }}-cluster --server=https://{{ hostvars['n01']['ansible_host'] }}:6443 --certificate-authority={{ lookup('env', 'HOME') }}/.kube/{{ env }}/ca.crt --embed-certs=true"
+      register: output
+      changed_when: output.rc == 0
+
+    - name: Set kubectl admin credentials for the new cluster
+      ansible.builtin.command: "kubectl config set-credentials {{ env }}-admin --client-certificate={{ lookup('env', 'HOME') }}/.kube/{{ env }}/admin.crt --client-key={{ lookup('env', 'HOME') }}/.kube/{{ env }}/admin.key --embed-certs=true"
+      register: output
+      changed_when: output.rc == 0
+
+    - name: Create kubectl context
+      ansible.builtin.command: "kubectl config set-context {{ env }} --cluster={{ env }}-cluster --user={{ env }}-admin"
+      register: output
+      changed_when: output.rc == 0
+
+    - name: Use the new context
+      ansible.builtin.command: "kubectl config use-context {{ env }}"
+      register: output
+      changed_when: output.rc == 0
+
+- name: Configure k8s cluster
+  hosts: localhost
+  tasks:
+    - name: Use the env context
+      ansible.builtin.command: "kubectl config use-context {{ env }}"
+      register: output
+      changed_when: output.rc == 0
+
+    - name: Set node labels
+      kubernetes.core.k8s:
+        kubeconfig: "{{ lookup('env', 'HOME') }}/.kube/config"
+        definition:
+          apiVersion: v1
+          kind: Node
+          metadata:
+            name: "{{ item }}"
+            labels:
+              size: "{{ hostvars[item].size }}"
+              role: "{{ hostvars[item].role }}"
+      loop: "{{ groups['nodes'] }}"
+
+    - name: Taint control plane nodes
+      kubernetes.core.k8s_taint:
+        kubeconfig: "{{ lookup('env', 'HOME') }}/.kube/config"
+        state: present
+        name: "{{ item }}"
+        taints:
+          - effect: NoSchedule
+            key: role
+            value: cp
+      loop: "{{ groups['cp_nodes'] }}"
+
+- name: Register master node SSH public key
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Read SSH public key from master node
+      ansible.builtin.slurp:
+        src: /root/.ssh/id_rsa.pub
+      delegate_to: pve01
+      register: master_ssh_pub_key
+
+- name: Distribute master node SSH public key to other nodes
+  hosts: pves
+  gather_facts: false
+  tasks:
+    - name: Add master node SSH public key to authorized keys
+      ansible.posix.authorized_key:
+        user: root
+        key: "{{ hostvars['localhost'].master_ssh_pub_key.content | b64decode }}"
+
+- name: Distribute master node SSH public key to VMs
+  hosts: nodes
+  gather_facts: false
+  tasks:
+    - name: Add master node SSH public key to authorized keys
+      ansible.posix.authorized_key:
+        user: ubuntu
+        key: "{{ hostvars['localhost'].master_ssh_pub_key.content | b64decode }}"
+
+- name: Create the cluster poweroff script
+  hosts: pve01
+  gather_facts: false
+  tasks:
+    - name: Create the cluster poweroff script
+      ansible.builtin.template:
+        src: templates/cluster-poweroff.j2
+        dest: /root/cluster-poweroff
+        mode: '0750'
+
+    - name: Create job to shutdown the cluster at night
+      ansible.builtin.cron:
+        name: 'Shutdown the node'
+        minute: '0'
+        hour: '0'
+        job: '/root/cluster-poweroff'
+
+- name: Create snapshots of the VMs configured
+  hosts: localhost
+  tasks:
+    - name: Create snapshot of the VM
+      community.proxmox.proxmox_snap:
+        api_user: root@pam
+        api_password: '{{ pve_root_password }}'
+        api_host: "{{ hostvars[hostvars[item]['proxmox_node']]['ansible_host'] }}"
+        hostname: "{{ item }}"
+        state: present
+        snapname: 'snapshot-{{ item }}'
+        retention: 1
+      loop: "{{ groups['nodes'] }}"

@@ -1,0 +1,19 @@
+pm_api_url      = "https://{{ hostvars['pve01'].ansible_host }}:8006/api2/json"
+pm_api_user     = "root@pam"
+pm_password     = "{{ pve_root_password }}"
+ssh_public_key  = "{{ lookup('file', lookup('env','HOME') + '/.ssh/id_ed25519.pub') }}"
+template_name   = "cloudinit-template"
+ciuser          = "ubuntu"
+vm_list = [
+{% for vm in groups['nodes'] %}
+{
+  name         = "{{ vm }}",
+  proxmox_node = "{{ hostvars[vm].proxmox_node }}",
+  memory       = "{{ hostvars[vm].memory }}",
+  cores        = "{{ hostvars[vm].cores }}",
+  disk         = "{{ hostvars[vm].disk_size }}",
+  macaddr      = "{{ hostvars[vm].mac_address }}",
+  ipconfig     = "{{ hostvars[vm].ipconfig }}"
+}{% if not loop.last %},{% endif %}
+{% endfor %}
+]
