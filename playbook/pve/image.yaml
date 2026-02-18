@@ -32,7 +32,7 @@
         mode: '0644'
       loop: "{{ groups['pves'] }}"
       vars:
-        pve_ssh_key: "{{ lookup('file', '/home/msd117/.ssh/id_ed25519.pub') }}"
+        pve_ssh_key: "{{ lookup('file', '/home/{{ pve.ssh_key_user }}/.ssh/id_ed25519.pub') }}"
 
     - name: Download the Proxmox VE ISO
       ansible.builtin.get_url:

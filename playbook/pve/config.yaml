@@ -6,7 +6,7 @@
       ansible.builtin.lineinfile:
         path: /etc/resolv.conf
         regexp: '^nameserver.*'
-        line: 'nameserver {{ pve_network_gateway }}'
+        line: 'nameserver {{ pve.network_gateway }}'
         state: present
 
     - name: Remove the pve enterprise repository file
@@ -76,8 +76,8 @@
       ansible.builtin.cron:
         name: 'Boot worker node'
         special_time: reboot
-        job: '/usr/bin/sleep 60 && /usr/bin/wakeonlan {{ pve_macaddrs }}'
-      when: inventory_hostname == 'pve01' and pve_macaddrs is defined
+        job: '/usr/bin/sleep 60 && /usr/bin/wakeonlan {{ pve.macaddrs }}'
+      when: inventory_hostname == 'pve01' and pve.macaddrs is defined
 
     - name: Create the user groups if needed
       ansible.builtin.group:
@@ -88,7 +88,7 @@
     - name: Create the user
       ansible.builtin.user:
         name: '{{ user.name }}'
-        password: '{{ pve_user_password | password_hash }}'
+        password: '{{ pve.user_password | password_hash }}'
         groups: '{{ user.groups }}'
         uid: '{{ user.uid }}'
         state: present
@@ -146,7 +146,7 @@
         command: pvecm add {{ hostvars['pve01'].ansible_host }}
         responses:
           'Are you sure you want to continue connecting': 'yes'
-          'Please enter superuser \(root\) password for': '{{ pve_root_password }}'
+          'Please enter superuser \(root\) password for': '{{ pve.root_password }}'
         timeout: 60
       when: ansible_hostname != 'pve01'
       register: cluster_join

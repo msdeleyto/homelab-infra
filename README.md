@@ -38,4 +38,5 @@ ansible-playbook -i inventory/$ENV/hosts.yaml playbooks/cluster/restore.yaml
 ```
 ansible
 ansible-lint
+passlib
 ```
