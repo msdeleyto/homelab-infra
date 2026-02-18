@@ -1,4 +1,4 @@
-resource "proxmox_vm_qemu" "k8s_nodes" {
+resource "proxmox_vm_qemu" "nodes" {
   count       = length(var.vm_list)
 
   name        = var.vm_list[count.index].name
@@ -19,8 +19,18 @@ resource "proxmox_vm_qemu" "k8s_nodes" {
     scsi {
       scsi0 {
         disk {
-          storage = "local-lvm"
-          size    = var.vm_list[count.index].disk
+          storage  = "local-lvm"
+          size     = var.vm_list[count.index].os_disk
+          discard  = true
+          iothread = true
+        }
+      }
+      scsi1 {
+        disk {
+          storage  = "local-lvm"
+          size     = var.vm_list[count.index].longhorn_disk
+          discard  = true
+          iothread = true
         }
       }
     }

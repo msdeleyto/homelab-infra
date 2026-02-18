@@ -1,6 +1,6 @@
-output "k8s_vm_names" {
-  description = "Name list of the k8s deployed nodes"
+output "node_names" {
+  description = "Name list of the deployed nodes"
   value = [
-    for vm in proxmox_vm_qemu.k8s_nodes : vm.name
+    for node in proxmox_vm_qemu.nodes : node.name
   ]
 }

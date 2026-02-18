@@ -32,12 +32,13 @@ variable "ciuser" {
 variable "vm_list" {
   description = "List of VMs to create"
   type = list(object({
-    name         = string
-    proxmox_node = string
-    memory       = string
-    cores        = string
-    disk         = string
-    macaddr      = string
-    ipconfig     = string
+    name          = string
+    proxmox_node  = string
+    memory        = string
+    cores         = string
+    os_disk       = string
+    longhorn_disk = string
+    macaddr       = string
+    ipconfig      = string
   }))
 }
