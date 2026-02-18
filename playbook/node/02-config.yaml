@@ -1,7 +1,11 @@
 ---
 - name: Configure VM nodes
   hosts: nodes
+  become: true
   tasks:
+    - name: Ensure the machine hostname matches the inventory
+      ansible.builtin.command: hostnamectl set-hostname '{{ inventory_hostname }}'
+
     - name: Install apt packages
       ansible.builtin.apt:
         name:
@@ -10,9 +14,16 @@
           - git
           - nfs-common
           - open-iscsi
+          - python3-pip
         state: present
         update_cache: true
-      become: true
+
+    - name: Install pip packages
+      ansible.builtin.pip:
+        name:
+          - kubernetes
+        state: present
+        break_system_packages: true
 
     - name: Enable the service iscsid 
       ansible.builtin.systemd_service:
@@ -20,8 +31,6 @@
         enabled: true
         state: started
         masked: no
-      become: true
-      become_user: root
 
     - name: Download k3s install script
       ansible.builtin.get_url:
@@ -31,6 +40,7 @@
 
 - name: Install k3s on the control plane nodes
   hosts: cp_nodes
+  become: true
   tasks:
     - name: Install k3s on the control plane node
       ansible.builtin.command: sh /tmp/install_k3s.sh
@@ -43,6 +53,7 @@
 
 - name: Install k3s on the worker nodes
   hosts: worker_nodes
+  become: true
   tasks:
     - name: Install k3s on the worker node
       ansible.builtin.command: sh /tmp/install_k3s.sh
@@ -57,7 +68,6 @@
 - name: Configure the control plane
   hosts: c01
   become: true
-  become_user: root
   tasks:
     - name: Transfer the cluster's certificate authority to localhost
       ansible.builtin.fetch:
@@ -78,16 +88,12 @@
         flat: true
 
 - name: Configure k8s cluster
-  hosts: localhost
+  hosts: c01
+  become: true
   tasks:
-    - name: Use the env context
-      ansible.builtin.command: "kubectl config use-context {{ env }}"
-      register: output
-      changed_when: output.rc == 0
-
     - name: Set node labels
       kubernetes.core.k8s:
-        kubeconfig: "{{ lookup('env', 'HOME') }}/.kube/config"
+        kubeconfig: /etc/rancher/k3s/k3s.yaml
         definition:
           apiVersion: v1
           kind: Node
@@ -100,7 +106,7 @@
 
     - name: Taint control plane nodes
       kubernetes.core.k8s_taint:
-        kubeconfig: "{{ lookup('env', 'HOME') }}/.kube/config"
+        kubeconfig: /etc/rancher/k3s/k3s.yaml
         state: present
         name: "{{ item }}"
         taints:
@@ -160,7 +166,7 @@
     - name: Create snapshot of the VM
       community.proxmox.proxmox_snap:
         api_user: root@pam
-        api_password: '{{ pve_root_password }}'
+        api_password: '{{ pve.root_password }}'
         api_host: "{{ hostvars[hostvars[item]['proxmox_node']]['ansible_host'] }}"
         hostname: "{{ item }}"
         state: present
@@ -172,7 +178,7 @@
   hosts: localhost
   tasks:
     - name: Set kubectl cluster for the new cluster
-      ansible.builtin.command: "kubectl config set-cluster {{ env }}-cluster --server=https://{{ hostvars['n01']['ansible_host'] }}:6443 --certificate-authority={{ lookup('env', 'HOME') }}/.kube/{{ env }}/ca.crt --embed-certs=true"
+      ansible.builtin.command: "kubectl config set-cluster {{ env }}-cluster --server=https://{{ hostvars['c01']['ansible_host'] }}:6443 --certificate-authority={{ lookup('env', 'HOME') }}/.kube/{{ env }}/ca.crt --embed-certs=true"
       register: output
       changed_when: output.rc == 0
 
