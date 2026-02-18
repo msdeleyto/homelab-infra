@@ -15,6 +15,8 @@ resource "proxmox_vm_qemu" "nodes" {
     sockets = 1
   }
 
+  cicustom = "user=local:snippets/longhorn-format.yml"
+
   disks {
     scsi {
       scsi0 {

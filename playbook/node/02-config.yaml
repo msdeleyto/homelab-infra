@@ -2,14 +2,6 @@
 - name: Configure VM nodes
   hosts: nodes
   tasks:
-    - name: Install nfs-kernel-server for the control plane node
-      ansible.builtin.apt:
-        name: nfs-kernel-server
-        state: present
-      become: true
-      become_user: root
-      when: inventory_hostname == 'c01'
-
     - name: Install apt packages
       ansible.builtin.apt:
         name:
@@ -17,9 +9,16 @@
           - curl
           - git
           - nfs-common
+          - open-iscsi
         state: present
         update_cache: true
       become: true
+
+    - name: Enable the service iscsid 
+      ansible.builtin.systemd_service:
+        name: iscsid
+        enabled: true
+        masked: no
       become_user: root
 
     - name: Download k3s install script
@@ -75,58 +74,6 @@
         src: /var/lib/rancher/k3s/server/tls/client-admin.key
         dest: "{{ lookup('env', 'HOME') }}/.kube/{{ env }}/admin.key"
         flat: true
-
-    - name: Create the traefik log directory
-      ansible.builtin.file:
-        path: /var/log/traefik
-        state: directory
-        owner: ubuntu
-        group: ubuntu
-        mode: '0755'
-
-    - name: Create the NFS server directory
-      ansible.builtin.file:
-        path: /srv/nfs/k8s
-        state: directory
-        owner: nobody
-        group: nogroup
-        mode: '0777'
-
-    - name: Export the NFS directory for vms
-      ansible.builtin.template:
-        src: templates/nfs-exports.j2
-        dest: /etc/exports
-        mode: '0600'
-
-    - name: Reload NFS exports
-      ansible.builtin.command: exportfs -ra
-      register: output
-      changed_when: output.rc != 0
-
-    - name: Restart the NFS server
-      ansible.builtin.service:
-        name: nfs-kernel-server
-        state: restarted
-
-- name: Configure the worker nodes
-  hosts: worker_nodes
-  become: true
-  become_user: root
-  tasks:
-    - name: Create the NFS directory
-      ansible.builtin.file:
-        path: /mnt/nfs/k8s
-        state: directory
-        mode: '0644'
-
-    - name: Mount NFS volumes with noauto according to boot option
-      ansible.posix.mount:
-        src: "{{ hostvars['c01'].ansible_host }}:/srv/nfs/k8s"
-        path: /mnt/nfs/k8s
-        opts: defaults,_netdev
-        boot: true
-        state: mounted
-        fstype: nfs
 
 - name: Set kubectl context for the new cluster
   hosts: localhost

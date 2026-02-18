@@ -2,6 +2,25 @@
 - name: Create the VM temaplate
   hosts: pves
   tasks:
+    - name: Ensure snippets directory exists
+      ansible.builtin.file:
+        path: /var/lib/vz/snippets
+        state: directory
+        mode: '0755'
+
+    - name: Create Longhorn formatting snippet
+      ansible.builtin.copy:
+        dest: /var/lib/vz/snippets/longhorn-format.yml
+        content: |
+          #cloud-config
+          fs_setup:
+            - label: longhorn
+              filesystem: 'ext4'
+              device: /dev/sdb
+              partition: auto
+          mounts:
+            - [ /dev/sdb, /var/lib/longhorn, "ext4", "defaults,nofail", "0", "2" ]
+
     - name: Download vm image
       ansible.builtin.get_url:
         url: '{{ vm.image_url }}'
@@ -50,7 +69,7 @@
     - name: Create VM
       community.proxmox.proxmox_kvm:
         api_user: root@pam
-        api_password: '{{ pve_root_password }}'
+        api_password: '{{ pve.root_password }}'
         api_host: '{{ inventory_hostname }}'
         name: '{{ vm.template_name }}'
         node: '{{ inventory_hostname }}'

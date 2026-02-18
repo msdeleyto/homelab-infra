@@ -1,6 +1,6 @@
 pm_api_url      = "https://{{ hostvars['pve01'].ansible_host }}:8006/api2/json"
 pm_api_user     = "root@pam"
-pm_password     = "{{ pve_root_password }}"
+pm_password     = "{{ pve.root_password }}"
 ssh_public_key  = "{{ lookup('file', lookup('env','HOME') + '/.ssh/id_ed25519.pub') }}"
 template_name   = "cloudinit-template"
 ciuser          = "ubuntu"
