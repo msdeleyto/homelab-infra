@@ -6,19 +6,18 @@
       block:
         - name: Checkout the homelab repo
           ansible.builtin.git:
-            repo: https://github.com/home-kops/k8s-homelab.git
+            repo: https://github.com/msdeleyto/homelab-manifests.git
             dest: /tmp/homelab
             single_branch: true
             version: main
 
         - name: Deploy
-          ansible.builtin.shell: /tmp/homelab/tooling/bootstrap "{{ cluster.secrets }}" "{{ cluster.secret_files }}"
+          ansible.builtin.shell: /tmp/homelab/tooling/bootstrap "{{ playbook_dir }}/../../inventory/{{ env }}/group_vars/all/secrets.yaml" "{{ cluster.secret_files }}"
           args:
             executable: /bin/bash
           environment:
             INFRA_ENV: '{{ env }}'
             INFRA_DOMAIN: '{{ cluster.secrets.infra.domain }}'
-            INFRA_K8S_NFS: '{{ cluster.secrets.infra.k8s_nfs }}'
             VAULT_ADMIN_PASSWORD: '{{ cluster.secrets.vault.vault.admin_password }}'
           register: output
           changed_when: output.rc != 0

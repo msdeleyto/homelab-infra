@@ -117,7 +117,6 @@
 
 - name: Register master node SSH public key
   hosts: localhost
-  gather_facts: false
   tasks:
     - name: Read SSH public key from master node
       ansible.builtin.slurp:
@@ -127,7 +126,6 @@
 
 - name: Distribute master node SSH public key to other nodes
   hosts: pves
-  gather_facts: false
   tasks:
     - name: Add master node SSH public key to authorized keys
       ansible.posix.authorized_key:
@@ -136,7 +134,6 @@
 
 - name: Distribute master node SSH public key to VMs
   hosts: nodes
-  gather_facts: false
   tasks:
     - name: Add master node SSH public key to authorized keys
       ansible.posix.authorized_key:
@@ -145,7 +142,6 @@
 
 - name: Create the cluster poweroff script
   hosts: pve01
-  gather_facts: false
   tasks:
     - name: Create the cluster poweroff script
       ansible.builtin.template:
