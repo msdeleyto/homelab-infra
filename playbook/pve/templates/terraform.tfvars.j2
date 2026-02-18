@@ -1,0 +1,13 @@
+network_ip = "{{ pve_network_ip }}"
+pve_nodes = [
+{% for node in groups['pves'] %}
+{
+  hostname     = "{{ node }}"
+  memory       = "{{ hostvars[node].memory }}"
+  vcpu         = "{{ hostvars[node].cores }}"
+  disk         = "{{ hostvars[node].disk_size }}"
+  mac          = "{{ hostvars[node].mac_address }}"
+  host_address = "{{ hostvars[node].ansible_host }}"
+}{% if not loop.last %},{% endif %}
+{% endfor %}
+]

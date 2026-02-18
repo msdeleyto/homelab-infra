@@ -1,0 +1,157 @@
+---
+- name: Configure proxmox
+  hosts: pves
+  tasks:
+    - name: Set DNS nameservers
+      ansible.builtin.lineinfile:
+        path: /etc/resolv.conf
+        regexp: '^nameserver.*'
+        line: 'nameserver {{ pve.network_gateway }}'
+        state: present
+
+    - name: Remove the pve enterprise repository file
+      ansible.builtin.file:
+        path: /etc/apt/sources.list.d/pve-enterprise.list
+        state: absent
+
+    - name: Remove the pve ceph repository file
+      ansible.builtin.file:
+        path: /etc/apt/sources.list.d/ceph.list
+        state: absent
+
+    - name: Append the pve no enterprise repository url to the sources list
+      ansible.builtin.lineinfile:
+        path: /etc/apt/sources.list
+        line: deb http://download.proxmox.com/debian/pve bookworm pve-no-subscription
+
+    - name: Update and upgrade apt packages
+      ansible.builtin.apt:
+        upgrade: true
+        update_cache: true
+
+    - name: Install packages
+      ansible.builtin.apt:
+        name: '{{ item }}'
+        state: present
+      loop: '{{ apt_packages }}'
+
+    - name: Install pip packages
+      ansible.builtin.pip:
+        name: '{{ item }}'
+        state: present
+        break_system_packages: true
+      loop: '{{ pip_packages }}'
+
+    - name: Disable password authentication for root
+      ansible.builtin.lineinfile:
+        path: /etc/ssh/sshd_config
+        state: present
+        regexp: '^#?PermitRootLogin'
+        line: 'PermitRootLogin prohibit-password'
+
+    - name: Disable ssh password authentication
+      ansible.builtin.lineinfile:
+        dest: /etc/ssh/sshd_config
+        regexp: ^PasswordAuthentication
+        line: PasswordAuthentication no
+
+    - name: Allow only ssh key authentication
+      ansible.builtin.lineinfile:
+        dest: /etc/ssh/sshd_config
+        regexp: ^PubkeyAuthentication
+        line: PubkeyAuthentication yes
+
+    - name: Restart ssh
+      ansible.builtin.service:
+        name: sshd
+        state: restarted
+
+    - name: Create job to enable WoL on reboot
+      ansible.builtin.cron:
+        name: 'Enable WoL'
+        special_time: reboot
+        job: '/usr/sbin/ethtool -s {{ network_interface }} wol g'
+
+    - name: Create job to boot worker node
+      ansible.builtin.cron:
+        name: 'Boot worker node'
+        special_time: reboot
+        job: '/usr/bin/sleep 60 && /usr/bin/wakeonlan {{ pve.macaddrs }}'
+      when: inventory_hostname == 'pve01' and pve.macaddrs is defined
+
+    - name: Create the user groups if needed
+      ansible.builtin.group:
+        name: '{{ item }}'
+        state: present
+      loop: '{{ user.groups }}'
+
+    - name: Create the user
+      ansible.builtin.user:
+        name: '{{ user.name }}'
+        password: '{{ pve.user_password | password_hash }}'
+        groups: '{{ user.groups }}'
+        uid: '{{ user.uid }}'
+        state: present
+        shell: /bin/bash
+        system: false
+        createhome: true
+        home: '/home/{{ user.name }}'
+
+    - name: Set current user ssh key as authorized key for the new user
+      ansible.posix.authorized_key:
+        user: '{{ user.name }}'
+        state: present
+        key: "{{ lookup('file', lookup('env', 'HOME') + '/.ssh/id_ed25519.pub') }}"
+
+    # - name: Create new Proxmox VE user group
+    #   community.proxmox.proxmox_group:
+    #     api_host: '{{ hostvars[inventory_hostname].ansible_host }}'
+    #     api_user: root@pam
+    #     api_password: '{{ pve_root_password }}'
+    #     name: '{{ user.proxmox.api_group }}'
+    #     comment: Administration group for API user
+
+    # - name: Create new Proxmox admin user
+    #   community.proxmox.proxmox_user:
+    #     api_host: '{{ hostvars[inventory_hostname].ansible_host }}'
+    #     api_user: root@pam
+    #     api_password: '{{ pve_root_password }}'
+    #     name: '{{ user.proxmox.api_user }}'
+    #     comment: API user for proxmox administration
+    #     firstname: Admin
+    #     groups:
+    #       - '{{ user.proxmox.api_group }}'
+
+    - name: Create the Proxmox cluster
+      ansible.builtin.command: pvecm create {{ cluster_name }} --link0 {{ hostvars[inventory_hostname].ansible_host }}
+      when: ansible_hostname == 'pve01'
+      register: cluster_create
+      changed_when: cluster_create.rc == 0
+      failed_when:
+        - cluster_create.rc != 0
+        - '"already exists" not in cluster_create.stderr'
+
+    - name: Get cluster join information
+      ansible.builtin.command: pvecm updatecerts --force
+      when: ansible_hostname == 'pve01'
+      changed_when: false
+
+    - name: Wait for cluster to be ready
+      ansible.builtin.pause:
+        seconds: 5
+      when: ansible_hostname == 'pve01'
+
+    - name: Join the Proxmox cluster
+      ansible.builtin.expect:
+        command: pvecm add {{ hostvars['pve01'].ansible_host }}
+        responses:
+          'Are you sure you want to continue connecting': 'yes'
+          'Please enter superuser \(root\) password for': '{{ pve.root_password }}'
+        timeout: 60
+      when: ansible_hostname != 'pve01'
+      register: cluster_join
+      changed_when: cluster_join.rc == 0
+      failed_when:
+        - cluster_join.rc != 0
+        - '"already part of a cluster" not in cluster_join.stdout'
+        - '"already part of a cluster" not in cluster_join.stderr'
