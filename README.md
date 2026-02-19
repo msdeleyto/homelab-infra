@@ -16,19 +16,19 @@ ansible-playbook -i inventory/$ENV/hosts.yaml playbooks/pve/02-config.yaml
 
 ```shell
 # Use cloud-init and terraform to provision the node virtual machines
-ansible-playbook -i inventory/$ENV/hosts.yaml playbooks/cluster/01-provision.yaml
+ansible-playbook -i inventory/$ENV/hosts.yaml playbooks/node/01-provision.yaml
 
 # Install the requirements and configure the nodes to run k3s. Take a snapshot of the nodes
-ansible-playbook -i inventory/$ENV/hosts.yaml playbooks/cluster/02-config.yaml
+ansible-playbook -i inventory/$ENV/hosts.yaml playbooks/node/02-config.yaml
 
 # Deploy the cluster's core services
-ansible-playbook -i inventory/$ENV/hosts.yaml playbooks/cluster/03-bootstrap.yaml
+ansible-playbook -i inventory/$ENV/hosts.yaml playbooks/node/03-bootstrap.yaml
 
 # On-demand secrets loading on the cluster secret management tool
-ansible-playbook -i inventory/$ENV/hosts.yaml playbooks/cluster/load-secrets.yaml
+ansible-playbook -i inventory/$ENV/hosts.yaml playbooks/node/load-secrets.yaml
 
 # Restore the nodes to a stable snapshot before deploying the cluster core services
-ansible-playbook -i inventory/$ENV/hosts.yaml playbooks/cluster/restore.yaml
+ansible-playbook -i inventory/$ENV/hosts.yaml playbooks/node/restore.yaml
 ```
 
 `ENV` could be `test` or `prod`.
