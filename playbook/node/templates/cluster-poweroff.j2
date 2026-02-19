@@ -1,0 +1,30 @@
+#!/bin/bash
+
+set -euo pipefail
+
+worker_ips="{% for host in groups['worker_nodes'] if hostvars[host].role == 'worker' %}{{ hostvars[host].ansible_host }}{% if not loop.last %} {% endif %}{% endfor %}"
+
+echo "Stopping k3s on worker nodes ${worker_ips}"
+for node_ip in ${worker_ips}; do
+  ssh -o BatchMode=yes -o ConnectTimeout=5 ubuntu@${node_ip} "sudo systemctl stop k3s-agent"
+done
+
+cp_ips="{% for host in groups['cp_nodes'] if hostvars[host].role == 'cp' %}{{ hostvars[host].ansible_host }}{% if not loop.last %} {% endif %}{% endfor %}"
+
+echo "Stopping k3s on control plane nodes"
+for node_ip in ${cp_ips}; do
+  ssh -o BatchMode=yes -o ConnectTimeout=5 ubuntu@${node_ip} "sudo systemctl stop k3s"
+done
+
+pve_workers="{% for host in groups['pve_workers'] %}{{ hostvars[host].ansible_host }}{% if not loop.last %} {% endif %}{% endfor %}"
+
+echo "Powering off workers"
+for pve_ip in ${pve_workers}; do
+  ssh -o BatchMode=yes -o ConnectTimeout=5 root@${pve_ip} "/usr/sbin/shutdown -h now"
+done
+
+echo "Wait before powering off master"
+sleep 10
+
+echo "Powering off master"
+/usr/sbin/shutdown -h now

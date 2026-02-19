@@ -1,0 +1,31 @@
+---
+- name: Deploy k8s homelab services
+  hosts: localhost
+  tasks:
+    - name: Deploy the k8s homelab services
+      block:
+        - name: Checkout the homelab repo
+          ansible.builtin.git:
+            repo: https://github.com/msdeleyto/homelab-manifests.git
+            dest: /tmp/homelab
+            single_branch: true
+            version: main
+
+        - name: Deploy
+          ansible.builtin.shell: |
+            /tmp/homelab/tooling/bootstrap \
+              "{{ playbook_dir }}/../../inventory/{{ env }}/group_vars/all/secrets.yaml" \
+              "{{ cluster.secret_files }}"
+          args:
+            executable: /bin/bash
+          environment:
+            INFRA_ENV: '{{ env }}'
+            INFRA_DOMAIN: '{{ cluster.secrets.infra.domain }}'
+            VAULT_ADMIN_PASSWORD: '{{ cluster.secrets.vault.vault.admin_password }}'
+          register: output
+          changed_when: output.rc != 0
+      always:
+        - name: Remove the homelab directory
+          ansible.builtin.file:
+            path: /tmp/homelab
+            state: absent

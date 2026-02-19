@@ -1,0 +1,222 @@
+---
+- name: Configure VM nodes
+  hosts: nodes
+  become: true
+  tasks:
+    - name: Ensure the machine hostname matches the inventory
+      ansible.builtin.command: hostnamectl set-hostname '{{ inventory_hostname }}'
+      register: output
+      changed_when: output.rc != 0
+
+    - name: Install apt packages
+      ansible.builtin.apt:
+        name:
+          - sudo
+          - curl
+          - git
+          - nfs-common
+          - open-iscsi
+          - python3-pip
+        state: present
+        update_cache: true
+
+    - name: Install pip packages
+      ansible.builtin.pip:
+        name:
+          - kubernetes
+        state: present
+        break_system_packages: true
+
+    - name: Enable the service iscsid
+      ansible.builtin.systemd_service:
+        name: iscsid
+        enabled: true
+        state: started
+        masked: false
+
+    - name: Download k3s install script
+      ansible.builtin.get_url:
+        url: https://get.k3s.io
+        dest: "/tmp/install_k3s.sh"
+        mode: '0770'
+
+- name: Install k3s on the control plane nodes
+  hosts: cp_nodes
+  become: true
+  tasks:
+    - name: Install k3s on the main control plane node
+      ansible.builtin.command: sh /tmp/install_k3s.sh
+      environment:
+        INSTALL_K3S_VERSION: '{{ k3s_version }}'
+        INSTALL_K3S_EXEC: "server --cluster-init --disable=traefik"
+        K3S_TOKEN: "{{ node.k3s_token }}"
+      when: inventory_hostname == 'c01'
+      register: output
+      changed_when: output.rc != 0
+
+    - name: Install k3s on the other control plane nodes
+      ansible.builtin.command: sh /tmp/install_k3s.sh
+      environment:
+        INSTALL_K3S_VERSION: '{{ k3s_version }}'
+        INSTALL_K3S_EXEC: "server --disable=traefik"
+        K3S_URL: "https://{{ hostvars['c01']['ansible_host'] }}:6443"
+        K3S_TOKEN: "{{ node.k3s_token }}"
+      when: inventory_hostname != 'c01'
+      register: output
+      changed_when: output.rc != 0
+
+- name: Install k3s on the worker nodes
+  hosts: worker_nodes
+  become: true
+  tasks:
+    - name: Install k3s on the worker node
+      ansible.builtin.command: sh /tmp/install_k3s.sh
+      environment:
+        INSTALL_K3S_VERSION: '{{ k3s_version }}'
+        INSTALL_K3S_EXEC: agent
+        K3S_URL: "https://{{ hostvars['c01']['ansible_host'] }}:6443"
+        K3S_TOKEN: "{{ node.k3s_token }}"
+      register: output
+      changed_when: output.rc != 0
+
+- name: Pull cluster files to grant local access
+  hosts: c01
+  become: true
+  tasks:
+    - name: Transfer the cluster's certificate authority to localhost
+      ansible.builtin.fetch:
+        src: /var/lib/rancher/k3s/server/tls/server-ca.crt
+        dest: "{{ lookup('env', 'HOME') }}/.kube/{{ env }}/ca.crt"
+        flat: true
+
+    - name: Transfer the cluster's admin user client certificate to localhost
+      ansible.builtin.fetch:
+        src: /var/lib/rancher/k3s/server/tls/client-admin.crt
+        dest: "{{ lookup('env', 'HOME') }}/.kube/{{ env }}/admin.crt"
+        flat: true
+
+    - name: Transfer the cluster's admin user client key to localhost
+      ansible.builtin.fetch:
+        src: /var/lib/rancher/k3s/server/tls/client-admin.key
+        dest: "{{ lookup('env', 'HOME') }}/.kube/{{ env }}/admin.key"
+        flat: true
+
+- name: Configure k8s cluster
+  hosts: c01
+  become: true
+  tasks:
+    - name: Set node labels
+      kubernetes.core.k8s:
+        kubeconfig: /etc/rancher/k3s/k3s.yaml
+        definition:
+          apiVersion: v1
+          kind: Node
+          metadata:
+            name: "{{ item }}"
+            labels:
+              size: "{{ hostvars[item].size }}"
+              role: "{{ hostvars[item].role }}"
+      loop: "{{ groups['nodes'] }}"
+
+    - name: Taint control plane nodes
+      kubernetes.core.k8s_taint:
+        kubeconfig: /etc/rancher/k3s/k3s.yaml
+        state: present
+        name: "{{ item }}"
+        taints:
+          - effect: NoSchedule
+            key: role
+            value: cp
+      loop: "{{ groups['cp_nodes'] }}"
+
+- name: Register master node SSH public key
+  hosts: localhost
+  tasks:
+    - name: Read SSH public key from master node
+      ansible.builtin.slurp:
+        src: /root/.ssh/id_rsa.pub
+      delegate_to: pve01
+      register: master_ssh_pub_key
+
+- name: Distribute master node SSH public key to other nodes
+  hosts: pves
+  tasks:
+    - name: Add master node SSH public key to authorized keys
+      ansible.posix.authorized_key:
+        user: root
+        key: "{{ hostvars['localhost'].master_ssh_pub_key.content | b64decode }}"
+
+- name: Distribute master node SSH public key to VMs
+  hosts: nodes
+  tasks:
+    - name: Add master node SSH public key to authorized keys
+      ansible.posix.authorized_key:
+        user: ubuntu
+        key: "{{ hostvars['localhost'].master_ssh_pub_key.content | b64decode }}"
+
+- name: Create the cluster poweroff script
+  hosts: pve01
+  tasks:
+    - name: Create the cluster poweroff script
+      ansible.builtin.template:
+        src: templates/cluster-poweroff.j2
+        dest: /root/cluster-poweroff
+        mode: '0750'
+
+    - name: Create job to shutdown the cluster at night
+      ansible.builtin.cron:
+        name: 'Shutdown the node'
+        minute: '0'
+        hour: '0'
+        job: '/root/cluster-poweroff'
+
+- name: Create snapshots of the VMs configured
+  hosts: localhost
+  tasks:
+    - name: Create snapshot of the VM
+      community.proxmox.proxmox_snap:
+        api_user: root@pam
+        api_password: '{{ pve.root_password }}'
+        api_host: "{{ hostvars[hostvars[item]['proxmox_node']]['ansible_host'] }}"
+        hostname: "{{ item }}"
+        state: present
+        snapname: 'snapshot-{{ item }}'
+        retention: 1
+      loop: "{{ groups['nodes'] }}"
+
+- name: Set kubectl context for the new cluster
+  hosts: localhost
+  tasks:
+    - name: Set kubectl cluster for the new cluster
+      ansible.builtin.command:
+        argv:
+          - kubectl
+          - config
+          - set-cluster {{ env }}-cluster
+          - --server=https://{{ hostvars['c01']['ansible_host'] }}:6443
+          - --certificate-authority={{ lookup('env', 'HOME') }}/.kube/{{ env }}/ca.crt
+          - --embed-certs=true
+      register: output
+      changed_when: output.rc == 0
+
+    - name: Set kubectl admin credentials for the new cluster
+      ansible.builtin.command:
+        argv:
+          - kubectl
+          - config
+          - set-credentials {{ env }}-admin
+          - --client-certificate={{ lookup('env', 'HOME') }}/.kube/{{ env }}/admin.crt
+          - --client-key={{ lookup('env', 'HOME') }}/.kube/{{ env }}/admin.key
+          - --embed-certs=true
+      register: output
+      changed_when: output.rc == 0
+
+    - name: Create kubectl context
+      ansible.builtin.command: "kubectl config set-context {{ env }} --cluster={{ env }}-cluster --user={{ env }}-admin"
+      register: output
+      changed_when: output.rc == 0
+
+    - name: Use the new context
+      ansible.builtin.command: "kubectl config use-context {{ env }}"
+      register: output
+      changed_when: output.rc == 0

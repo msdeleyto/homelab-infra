@@ -12,7 +12,7 @@ pve_workers:
       ansible_host: 192.168.10.3
       ansible_user: root
       network_interface: enp3s0
-      disk_model: AirDisk*
+      disk_model: HOGE*
       vm_template_id: 9001
 pves:
   children:
@@ -28,8 +28,8 @@ cp_nodes:
       size: cp
       memory: 4096
       cores: 2
-      main_disk_size: 64G
-      net_disk_size: 128G
+      os_disk: 64G
+      longhorn_disk: 128G
       mac_address: 02:00:00:09:E6:16
       ipconfig: ip=192.168.10.50/24,gw=192.168.10.1
     c02:
@@ -40,8 +40,8 @@ cp_nodes:
       size: cp
       memory: 4096
       cores: 2
-      main_disk_size: 64G
-      net_disk_size: 128G
+      os_disk: 64G
+      longhorn_disk: 128G
       mac_address: 02:00:00:09:E6:17
       ipconfig: ip=192.168.10.51/24,gw=192.168.10.1
     c03:
@@ -52,8 +52,8 @@ cp_nodes:
       size: cp
       memory: 4096
       cores: 2
-      main_disk_size: 64G
-      net_disk_size: 128G
+      os_disk: 64G
+      longhorn_disk: 128G
       mac_address: 02:00:00:09:E6:18
       ipconfig: ip=192.168.10.52/24,gw=192.168.10.1
 worker_nodes:
@@ -66,8 +66,8 @@ worker_nodes:
       size: worker
       memory: 20480
       cores: 10
-      main_disk_size: 64G
-      net_disk_size: 128G
+      os_disk: 64G
+      longhorn_disk: 128G
       mac_address: 02:00:00:D2:EC:4F
       ipconfig: ip=192.168.10.60/24,gw=192.168.10.1
     n02:
@@ -78,8 +78,8 @@ worker_nodes:
       size: worker
       memory: 20480
       cores: 10
-      main_disk_size: 64G
-      net_disk_size: 128G
+      os_disk: 64G
+      longhorn_disk: 128G
       mac_address: 02:00:00:D2:EC:50
       ipconfig: ip=192.168.10.61/24,gw=192.168.10.1
 nodes:

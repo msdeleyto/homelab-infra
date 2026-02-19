@@ -1,0 +1,163 @@
+---
+- name: Create the VM temaplate
+  hosts: pves
+  tasks:
+    - name: Ensure snippets directory exists
+      ansible.builtin.file:
+        path: /var/lib/vz/snippets
+        state: directory
+        mode: '0755'
+
+    - name: Create Longhorn formatting snippet
+      ansible.builtin.copy:
+        dest: /var/lib/vz/snippets/longhorn-format.yml
+        content: |
+          #cloud-config
+          fs_setup:
+            - label: longhorn
+              filesystem: 'ext4'
+              device: /dev/sdb
+              partition: auto
+          mounts:
+            - [ /dev/sdb, /var/lib/longhorn, "ext4", "defaults,nofail", "0", "2" ]
+        mode: '0644'
+
+    - name: Download vm image
+      ansible.builtin.get_url:
+        url: '{{ vm.image_url }}'
+        dest: '{{ vm.image_file }}'
+        mode: '0644'
+
+    - name: Check if image is already customized
+      ansible.builtin.command: 'virt-cat -a {{ vm.image_file }} /etc/sudoers.d/{{ vm.username }}'
+      register: image_customized
+      changed_when: image_customized.rc != 0
+      ignore_errors: true
+
+    - name: Customize the image
+      when: image_customized.rc != 0
+      block:
+        - name: Customize the image
+          ansible.builtin.command: virt-customize -a '{{ vm.image_file }}' {{ item }}
+          with_items:
+            - --update
+            - --install qemu-guest-agent
+            - --run-command 'useradd --shell /bin/bash {{ vm.username }}'
+            - --run-command 'mkdir -p /home/{{ vm.username }}/.ssh'
+            - "--ssh-inject {{ vm.username }}:string:'{{ lookup('file', lookup('env', 'HOME') + '/.ssh/id_ed25519.pub') }}'"
+            - --run-command 'chown -R {{ vm.username }}:{{ vm.username }} /home/{{ vm.username }}'
+            - "--write /etc/sudoers.d/{{ vm.username }}:'{{ vm.username }} ALL=(ALL) NOPASSWD: ALL'"
+            - --run-command 'chmod 0440 /etc/sudoers.d/{{ vm.username }}'
+            - --run-command 'chown root:root /etc/sudoers.d/{{ vm.username }}'
+            - --run-command '>/etc/machine-id'
+          register: output
+          changed_when: output.rc != 0
+      rescue:
+        - name: Remove the image if customization failed
+          ansible.builtin.file:
+            path: '{{ vm.image_file }}'
+            state: absent
+        - name: Fail the task
+          ansible.builtin.fail:
+            msg: 'Failed to customize the image'
+
+    - name: Check if VM already exists
+      ansible.builtin.command: qm status {{ vm_template_id }}
+      register: vm_exists
+      changed_when: false
+      failed_when: false
+
+    - name: Create VM
+      community.proxmox.proxmox_kvm:
+        api_user: root@pam
+        api_password: '{{ pve.root_password }}'
+        api_host: '{{ inventory_hostname }}'
+        name: '{{ vm.template_name }}'
+        node: '{{ inventory_hostname }}'
+        vmid: '{{ vm_template_id }}'
+        net:
+          net0: 'virtio,bridge=vmbr0'
+        cores: '{{ vm.cores }}'
+        memory: '{{ vm.memory }}'
+        scsihw: virtio-scsi-pci
+        serial:
+          serial0: socket
+        vga: serial0
+        agent: enabled=1
+        state: present
+      when: vm_exists.rc != 0
+
+    - name: Get current VM config
+      ansible.builtin.command: qm config {{ vm_template_id }}
+      register: vm_config
+      changed_when: false
+      failed_when: false
+
+    - name: Import disk image to VM
+      ansible.builtin.command: qm importdisk {{ vm_template_id }} {{ vm.image_file }} {{ vm.storage }}
+      register: import_result
+      changed_when: import_result.rc == 0
+      failed_when: false
+      when: "'scsi0' not in vm_config.stdout"
+
+    - name: Parse imported disk name
+      ansible.builtin.set_fact:
+        imported_disk: "{{ import_result.stdout | regex_search('(local-lvm:vm-[0-9]+-disk-[0-9]+)') }}"
+      when:
+        - import_result is not skipped
+        - import_result.rc is defined
+        - import_result.rc == 0
+        - import_result.stdout is defined
+
+    - name: Attach imported disk to VM
+      ansible.builtin.command: qm set {{ vm_template_id }} --scsi0 {{ imported_disk }}
+      when:
+        - imported_disk is defined
+        - "'scsi0' not in vm_config.stdout"
+      register: attach_result
+      changed_when: attach_result.rc == 0
+
+    - name: Add cloud-init drive
+      ansible.builtin.command: qm set {{ vm_template_id }} --ide2 {{ vm.storage }}:cloudinit
+      when: "'ide2' not in vm_config.stdout"
+      register: cloudinit_result
+      changed_when: cloudinit_result.rc == 0
+      failed_when: false
+
+    - name: Configure VM boot settings
+      ansible.builtin.command: qm set {{ vm_template_id }} --boot c --bootdisk scsi0
+      when: "'boot' not in vm_config.stdout or 'scsi0' not in vm_config.stdout"
+      register: boot_result
+      changed_when: boot_result.rc == 0
+      failed_when: false
+
+    - name: Check if already a template
+      ansible.builtin.shell: |
+        set -o pipefail
+
+        qm config {{ vm_template_id }} | grep -q "^template:"
+      register: is_template
+      changed_when: false
+      failed_when: false
+
+    - name: Convert VM to template
+      ansible.builtin.command: qm template {{ vm_template_id }}
+      when: is_template.rc != 0
+      register: template_result
+      changed_when: template_result.rc == 0
+
+- name: Provision the virtual machines
+  hosts: localhost
+  tasks:
+    - name: Create terraform tfvars file
+      ansible.builtin.template:
+        src: templates/terraform.tfvars.j2
+        dest: terraform/terraform.tfvars
+        mode: '0644'
+
+    - name: Execute terraform
+      community.general.terraform:
+        project_path: '{{ playbook_dir }}/terraform'
+        force_init: true
+        workspace: '{{ env }}'
+        state: present

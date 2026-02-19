@@ -1,0 +1,23 @@
+- name: Restore snapshots of the VMs configured
+  hosts: localhost
+  tasks:
+    - name: Restore snapshot of the VM
+      community.proxmox.proxmox_snap:
+        api_user: root@pam
+        api_password: '{{ pve.root_password }}'
+        api_host: "{{ hostvars[hostvars[item]['proxmox_node']]['ansible_host'] }}"
+        hostname: "{{ item }}"
+        state: rollback
+        snapname: 'snapshot-{{ item }}'
+        retention: 1
+      loop: "{{ groups['nodes'] }}"
+
+    - name: Start VM
+      community.proxmox.proxmox_kvm:
+        api_user: root@pam
+        api_password: '{{ pve.root_password }}'
+        api_host: "{{ hostvars[hostvars[item]['proxmox_node']]['ansible_host'] }}"
+        name: "{{ item }}"
+        node: "{{ hostvars[item]['proxmox_node'] }}"
+        state: started
+      loop: "{{ groups['nodes'] }}"
