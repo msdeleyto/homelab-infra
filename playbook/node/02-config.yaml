@@ -42,12 +42,24 @@
   hosts: cp_nodes
   become: true
   tasks:
-    - name: Install k3s on the control plane node
+    - name: Install k3s on the main control plane node
+      ansible.builtin.command: sh /tmp/install_k3s.sh
+      environment:
+        INSTALL_K3S_VERSION: '{{ k3s_version }}'
+        INSTALL_K3S_EXEC: "server --cluster-init --disable=traefik"
+        K3S_TOKEN: "{{ node.k3s_token }}"
+      when: inventory_hostname == 'c01'
+      register: output
+      changed_when: output.rc != 0
+
+    - name: Install k3s on the other control plane nodes
       ansible.builtin.command: sh /tmp/install_k3s.sh
       environment:
         INSTALL_K3S_VERSION: '{{ k3s_version }}'
         INSTALL_K3S_EXEC: "server --disable=traefik"
+        K3S_URL: "https://{{ hostvars['c01']['ansible_host'] }}:6443"
         K3S_TOKEN: "{{ node.k3s_token }}"
+      when: inventory_hostname != 'c01'
       register: output
       changed_when: output.rc != 0
 
@@ -65,7 +77,7 @@
       register: output
       changed_when: output.rc != 0
 
-- name: Configure the control plane
+- name: Pull cluster files to grant local access
   hosts: c01
   become: true
   tasks:

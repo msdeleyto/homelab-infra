@@ -122,9 +122,11 @@
     #     groups:
     #       - '{{ user.proxmox.api_group }}'
 
+- name: Create the cluster
+  hosts: pve_main
+  tasks:
     - name: Create the Proxmox cluster
       ansible.builtin.command: pvecm create {{ cluster_name }} --link0 {{ hostvars[inventory_hostname].ansible_host }}
-      when: ansible_hostname == 'pve01'
       register: cluster_create
       changed_when: cluster_create.rc == 0
       failed_when:
@@ -133,14 +135,15 @@
 
     - name: Get cluster join information
       ansible.builtin.command: pvecm updatecerts --force
-      when: ansible_hostname == 'pve01'
       changed_when: false
 
     - name: Wait for cluster to be ready
       ansible.builtin.pause:
         seconds: 5
-      when: ansible_hostname == 'pve01'
 
+- name: Join the cluster
+  hosts: pve_workers
+  tasks:
     - name: Join the Proxmox cluster
       ansible.builtin.expect:
         command: pvecm add {{ hostvars['pve01'].ansible_host }}
@@ -148,7 +151,6 @@
           'Are you sure you want to continue connecting': 'yes'
           'Please enter superuser \(root\) password for': '{{ pve.root_password }}'
         timeout: 60
-      when: ansible_hostname != 'pve01'
       register: cluster_join
       changed_when: cluster_join.rc == 0
       failed_when:
