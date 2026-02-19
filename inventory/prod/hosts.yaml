@@ -12,7 +12,7 @@ pve_workers:
       ansible_host: 192.168.10.3
       ansible_user: root
       network_interface: enp3s0
-      disk_model: AirDisk*
+      disk_model: HOGE*
       vm_template_id: 9001
 pves:
   children:
