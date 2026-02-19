@@ -20,6 +20,7 @@
               partition: auto
           mounts:
             - [ /dev/sdb, /var/lib/longhorn, "ext4", "defaults,nofail", "0", "2" ]
+        mode: '0644'
 
     - name: Download vm image
       ansible.builtin.get_url:
@@ -102,7 +103,7 @@
     - name: Parse imported disk name
       ansible.builtin.set_fact:
         imported_disk: "{{ import_result.stdout | regex_search('(local-lvm:vm-[0-9]+-disk-[0-9]+)') }}"
-      when: 
+      when:
         - import_result is not skipped
         - import_result.rc is defined
         - import_result.rc == 0
@@ -110,7 +111,7 @@
 
     - name: Attach imported disk to VM
       ansible.builtin.command: qm set {{ vm_template_id }} --scsi0 {{ imported_disk }}
-      when: 
+      when:
         - imported_disk is defined
         - "'scsi0' not in vm_config.stdout"
       register: attach_result
@@ -131,7 +132,10 @@
       failed_when: false
 
     - name: Check if already a template
-      ansible.builtin.shell: qm config {{ vm_template_id }} | grep -q "^template:"
+      ansible.builtin.shell: |
+        set -o pipefail
+
+        qm config {{ vm_template_id }} | grep -q "^template:"
       register: is_template
       changed_when: false
       failed_when: false
@@ -149,7 +153,7 @@
       ansible.builtin.template:
         src: templates/terraform.tfvars.j2
         dest: terraform/terraform.tfvars
-        mode: 0644
+        mode: '0644'
 
     - name: Execute terraform
       community.general.terraform:

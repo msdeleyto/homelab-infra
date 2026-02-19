@@ -5,6 +5,8 @@
   tasks:
     - name: Ensure the machine hostname matches the inventory
       ansible.builtin.command: hostnamectl set-hostname '{{ inventory_hostname }}'
+      register: output
+      changed_when: output.rc != 0
 
     - name: Install apt packages
       ansible.builtin.apt:
@@ -25,12 +27,12 @@
         state: present
         break_system_packages: true
 
-    - name: Enable the service iscsid 
+    - name: Enable the service iscsid
       ansible.builtin.systemd_service:
         name: iscsid
         enabled: true
         state: started
-        masked: no
+        masked: false
 
     - name: Download k3s install script
       ansible.builtin.get_url:
@@ -186,12 +188,26 @@
   hosts: localhost
   tasks:
     - name: Set kubectl cluster for the new cluster
-      ansible.builtin.command: "kubectl config set-cluster {{ env }}-cluster --server=https://{{ hostvars['c01']['ansible_host'] }}:6443 --certificate-authority={{ lookup('env', 'HOME') }}/.kube/{{ env }}/ca.crt --embed-certs=true"
+      ansible.builtin.command:
+        argv:
+          - kubectl
+          - config
+          - set-cluster {{ env }}-cluster
+          - --server=https://{{ hostvars['c01']['ansible_host'] }}:6443
+          - --certificate-authority={{ lookup('env', 'HOME') }}/.kube/{{ env }}/ca.crt
+          - --embed-certs=true
       register: output
       changed_when: output.rc == 0
 
     - name: Set kubectl admin credentials for the new cluster
-      ansible.builtin.command: "kubectl config set-credentials {{ env }}-admin --client-certificate={{ lookup('env', 'HOME') }}/.kube/{{ env }}/admin.crt --client-key={{ lookup('env', 'HOME') }}/.kube/{{ env }}/admin.key --embed-certs=true"
+      ansible.builtin.command:
+        argv:
+          - kubectl
+          - config
+          - set-credentials {{ env }}-admin
+          - --client-certificate={{ lookup('env', 'HOME') }}/.kube/{{ env }}/admin.crt
+          - --client-key={{ lookup('env', 'HOME') }}/.kube/{{ env }}/admin.key
+          - --embed-certs=true
       register: output
       changed_when: output.rc == 0
 
