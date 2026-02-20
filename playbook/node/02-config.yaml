@@ -48,7 +48,7 @@
       ansible.builtin.command: sh /tmp/install_k3s.sh
       environment:
         INSTALL_K3S_VERSION: '{{ k3s_version }}'
-        INSTALL_K3S_EXEC: "server --cluster-init --disable=traefik"
+        INSTALL_K3S_EXEC: "server --cluster-init --flannel-backend=none --disable-network-policy --disable=traefik"
         K3S_TOKEN: "{{ node.k3s_token }}"
       when: inventory_hostname == 'c01'
       register: output
@@ -58,7 +58,7 @@
       ansible.builtin.command: sh /tmp/install_k3s.sh
       environment:
         INSTALL_K3S_VERSION: '{{ k3s_version }}'
-        INSTALL_K3S_EXEC: "server --disable=traefik"
+        INSTALL_K3S_EXEC: "server --flannel-backend=none --disable-network-policy --disable=traefik"
         K3S_URL: "https://{{ hostvars['c01']['ansible_host'] }}:6443"
         K3S_TOKEN: "{{ node.k3s_token }}"
       when: inventory_hostname != 'c01'
