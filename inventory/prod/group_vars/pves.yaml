@@ -6,10 +6,10 @@ apt_packages:
 - expect
 - wakeonlan
 - python3-pip
+- python3-venv
 pip_packages:
 - proxmoxer==2.2.0
 - pexpect
-- prometheus-pve-exporter
 user:
   name: admin
   groups:

@@ -103,24 +103,73 @@
         state: present
         key: "{{ lookup('file', lookup('env', 'HOME') + '/.ssh/id_ed25519.pub') }}"
 
-    # - name: Create new Proxmox VE user group
-    #   community.proxmox.proxmox_group:
-    #     api_host: '{{ hostvars[inventory_hostname].ansible_host }}'
-    #     api_user: root@pam
-    #     api_password: '{{ pve_root_password }}'
-    #     name: '{{ user.proxmox.api_group }}'
-    #     comment: Administration group for API user
+    - name: Create the prometheus user
+      ansible.builtin.user:
+        name: prometheus
+        password: '{{ pve.prometheus_password | password_hash }}'
+        state: present
+        system: false
 
-    # - name: Create new Proxmox admin user
-    #   community.proxmox.proxmox_user:
-    #     api_host: '{{ hostvars[inventory_hostname].ansible_host }}'
-    #     api_user: root@pam
-    #     api_password: '{{ pve_root_password }}'
-    #     name: '{{ user.proxmox.api_user }}'
-    #     comment: API user for proxmox administration
-    #     firstname: Admin
-    #     groups:
-    #       - '{{ user.proxmox.api_group }}'
+    - name: Create new Proxmox VE monitoring group
+      community.proxmox.proxmox_group:
+        api_host: '{{ inventory_hostname }}'
+        api_user: root@pam
+        api_password: '{{ pve.root_password }}'
+        groupid: monitoring
+
+    - name: Assign monitoring related roles to the new group
+      community.proxmox.proxmox_access_acl:
+        api_host: '{{ inventory_hostname }}'
+        api_user: root@pam
+        api_password: '{{ pve.root_password }}'
+        path: "/"
+        roleid: PVEAuditor
+        ugid: monitoring
+        type: group
+        state: present
+        propagate: true
+
+    - name: Create the prometheus pve exporter user
+      community.proxmox.proxmox_user:
+        api_host: '{{ inventory_hostname }}'
+        api_user: root@pam
+        api_password: '{{ pve.root_password }}'
+        name: prometheus@pve
+        enable: true
+        password: '{{ pve.prometheus_password }}'
+        groups:
+          - monitoring
+
+    - name: Create the prometheus config directory
+      ansible.builtin.file:
+        path: /etc/prometheus
+        state: directory
+        mode: '0755'
+
+    - name: Create the prometheus exporter config file
+      ansible.builtin.template:
+        src: templates/prometheus-pve-exporter-config.j2
+        dest: /etc/prometheus/pve.yml
+        mode: '0644'
+
+    - name: Create the prometheus exporter service file
+      ansible.builtin.template:
+        src: templates/prometheus-pve-exporter-service.j2
+        dest: /etc/systemd/system/prometheus-pve-exporter.service
+        mode: '0644'
+
+    - name: Install prometheus pve exporter on its own venv
+      ansible.builtin.pip:
+        name: prometheus-pve-exporter
+        virtualenv: /opt/prometheus-pve-exporter
+        virtualenv_command: python3 -m venv
+
+    - name: Start and enable the prometheus-pve-exporter service
+      ansible.builtin.systemd_service:
+        name: prometheus-pve-exporter
+        state: started
+        enabled: true
+        daemon_reload: true
 
 - name: Create the cluster
   hosts: pve_main
