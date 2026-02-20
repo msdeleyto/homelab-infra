@@ -206,3 +206,38 @@
         - cluster_join.rc != 0
         - '"already part of a cluster" not in cluster_join.stdout'
         - '"already part of a cluster" not in cluster_join.stderr'
+
+- name: Add pve workers public keys to main pve known hosts
+  hosts: pve_main
+  tasks:
+    - name: Scan SSH keys of pve workers
+      ansible.builtin.command: "ssh-keyscan -H {{ hostvars[item].ansible_host }}"
+      loop: "{{ groups['pve_workers'] }}"
+      register: ssh_scan
+      changed_when: false
+
+    - name: Add pve workers SSH keys to known_hosts
+      ansible.builtin.known_hosts:
+        path: /root/.ssh/known_hosts
+        name: "{{ item.item }}"
+        key: "{{ item.stdout }}"
+        state: present
+      loop: "{{ ssh_scan.results }}"
+      when: item.stdout is defined and item.stdout != ""
+
+- name: Register main pve SSH public key
+  hosts: localhost
+  tasks:
+    - name: Read SSH public key from main pve
+      ansible.builtin.slurp:
+        src: /root/.ssh/id_rsa.pub
+      delegate_to: pve01
+      register: main_ssh_pub_key
+
+- name: Distribute main node SSH public key to other pve nodes
+  hosts: pve_workers
+  tasks:
+    - name: Add main node SSH public key to authorized keys
+      ansible.posix.authorized_key:
+        user: root
+        key: "{{ hostvars['localhost'].main_ssh_pub_key.content | b64decode }}"

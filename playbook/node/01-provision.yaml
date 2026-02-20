@@ -164,3 +164,54 @@
         force_init: true
         workspace: '{{ env }}'
         state: present
+
+- name: Add nodes public keys to main pve known hosts
+  hosts: pve_main
+  tasks:
+    - name: Scan SSH keys of nodes
+      ansible.builtin.command: "ssh-keyscan -H {{ hostvars[item].ansible_host }}"
+      loop: "{{ groups['nodes'] }}"
+      register: ssh_scan
+      changed_when: false
+
+    - name: Add nodes SSH keys to known_hosts
+      ansible.builtin.known_hosts:
+        path: /root/.ssh/known_hosts
+        name: "{{ item.item }}"
+        key: "{{ item.stdout }}"
+        state: present
+      loop: "{{ ssh_scan.results }}"
+      when: item.stdout is defined and item.stdout != ""
+
+- name: Register main pve SSH public key
+  hosts: localhost
+  tasks:
+    - name: Read SSH public key from main pve
+      ansible.builtin.slurp:
+        src: /root/.ssh/id_rsa.pub
+      delegate_to: pve01
+      register: main_ssh_pub_key
+
+- name: Distribute main node SSH public key to nodes
+  hosts: nodes
+  tasks:
+    - name: Add main node SSH public key to authorized keys
+      ansible.posix.authorized_key:
+        user: ubuntu
+        key: "{{ hostvars['localhost'].main_ssh_pub_key.content | b64decode }}"
+
+- name: Create the cluster poweroff script
+  hosts: pve01
+  tasks:
+    - name: Create the cluster poweroff script
+      ansible.builtin.template:
+        src: templates/cluster-poweroff.j2
+        dest: /root/cluster-poweroff
+        mode: '0750'
+
+    - name: Create job to shutdown the cluster at night
+      ansible.builtin.cron:
+        name: 'Shutdown the node'
+        minute: '0'
+        hour: '0'
+        job: '/root/cluster-poweroff'

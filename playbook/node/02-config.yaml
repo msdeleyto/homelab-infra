@@ -81,28 +81,6 @@
       register: output
       changed_when: output.rc != 0
 
-- name: Pull cluster files to grant local access
-  hosts: c01
-  become: true
-  tasks:
-    - name: Transfer the cluster's certificate authority to localhost
-      ansible.builtin.fetch:
-        src: /var/lib/rancher/k3s/server/tls/server-ca.crt
-        dest: "{{ lookup('env', 'HOME') }}/.kube/{{ env }}/ca.crt"
-        flat: true
-
-    - name: Transfer the cluster's admin user client certificate to localhost
-      ansible.builtin.fetch:
-        src: /var/lib/rancher/k3s/server/tls/client-admin.crt
-        dest: "{{ lookup('env', 'HOME') }}/.kube/{{ env }}/admin.crt"
-        flat: true
-
-    - name: Transfer the cluster's admin user client key to localhost
-      ansible.builtin.fetch:
-        src: /var/lib/rancher/k3s/server/tls/client-admin.key
-        dest: "{{ lookup('env', 'HOME') }}/.kube/{{ env }}/admin.key"
-        flat: true
-
 - name: Configure k8s cluster
   hosts: c01
   become: true
@@ -131,47 +109,6 @@
             value: cp
       loop: "{{ groups['cp_nodes'] }}"
 
-- name: Register master node SSH public key
-  hosts: localhost
-  tasks:
-    - name: Read SSH public key from master node
-      ansible.builtin.slurp:
-        src: /root/.ssh/id_rsa.pub
-      delegate_to: pve01
-      register: master_ssh_pub_key
-
-- name: Distribute master node SSH public key to other nodes
-  hosts: pves
-  tasks:
-    - name: Add master node SSH public key to authorized keys
-      ansible.posix.authorized_key:
-        user: root
-        key: "{{ hostvars['localhost'].master_ssh_pub_key.content | b64decode }}"
-
-- name: Distribute master node SSH public key to VMs
-  hosts: nodes
-  tasks:
-    - name: Add master node SSH public key to authorized keys
-      ansible.posix.authorized_key:
-        user: ubuntu
-        key: "{{ hostvars['localhost'].master_ssh_pub_key.content | b64decode }}"
-
-- name: Create the cluster poweroff script
-  hosts: pve01
-  tasks:
-    - name: Create the cluster poweroff script
-      ansible.builtin.template:
-        src: templates/cluster-poweroff.j2
-        dest: /root/cluster-poweroff
-        mode: '0750'
-
-    - name: Create job to shutdown the cluster at night
-      ansible.builtin.cron:
-        name: 'Shutdown the node'
-        minute: '0'
-        hour: '0'
-        job: '/root/cluster-poweroff'
-
 - name: Create snapshots of the VMs configured
   hosts: localhost
   tasks:
@@ -185,6 +122,28 @@
         snapname: 'snapshot-{{ item }}'
         retention: 1
       loop: "{{ groups['nodes'] }}"
+
+- name: Pull cluster files to grant local access
+  hosts: c01
+  become: true
+  tasks:
+    - name: Transfer the cluster's certificate authority to localhost
+      ansible.builtin.fetch:
+        src: /var/lib/rancher/k3s/server/tls/server-ca.crt
+        dest: "{{ lookup('env', 'HOME') }}/.kube/{{ env }}/ca.crt"
+        flat: true
+
+    - name: Transfer the cluster's admin user client certificate to localhost
+      ansible.builtin.fetch:
+        src: /var/lib/rancher/k3s/server/tls/client-admin.crt
+        dest: "{{ lookup('env', 'HOME') }}/.kube/{{ env }}/admin.crt"
+        flat: true
+
+    - name: Transfer the cluster's admin user client key to localhost
+      ansible.builtin.fetch:
+        src: /var/lib/rancher/k3s/server/tls/client-admin.key
+        dest: "{{ lookup('env', 'HOME') }}/.kube/{{ env }}/admin.key"
+        flat: true
 
 - name: Set kubectl context for the new cluster
   hosts: localhost
