@@ -1,3 +1,7 @@
+local:
+  hosts:
+    localhost:
+      ansible_connection: local
 pve_main:
   hosts:
     pve01:

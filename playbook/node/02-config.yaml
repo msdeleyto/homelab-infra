@@ -44,21 +44,23 @@
   hosts: cp_nodes
   become: true
   tasks:
+    #--flannel-backend=none --disable-network-policy"
     - name: Install k3s on the main control plane node
       ansible.builtin.command: sh /tmp/install_k3s.sh
       environment:
         INSTALL_K3S_VERSION: '{{ k3s_version }}'
-        INSTALL_K3S_EXEC: "server --cluster-init --flannel-backend=none --disable-network-policy --disable=traefik"
+        INSTALL_K3S_EXEC: "server --cluster-init --disable=traefik"
         K3S_TOKEN: "{{ node.k3s_token }}"
       when: inventory_hostname == 'c01'
       register: output
       changed_when: output.rc != 0
 
+    # --flannel-backend=none --disable-network-policy"
     - name: Install k3s on the other control plane nodes
       ansible.builtin.command: sh /tmp/install_k3s.sh
       environment:
         INSTALL_K3S_VERSION: '{{ k3s_version }}'
-        INSTALL_K3S_EXEC: "server --flannel-backend=none --disable-network-policy --disable=traefik"
+        INSTALL_K3S_EXEC: "server --disable=traefik"
         K3S_URL: "https://{{ hostvars['c01']['ansible_host'] }}:6443"
         K3S_TOKEN: "{{ node.k3s_token }}"
       when: inventory_hostname != 'c01'
@@ -187,27 +189,21 @@
 - name: Set kubectl context for the new cluster
   hosts: localhost
   tasks:
-    - name: Set kubectl cluster for the new cluster
-      ansible.builtin.command:
-        argv:
-          - kubectl
-          - config
-          - set-cluster {{ env }}-cluster
-          - --server=https://{{ hostvars['c01']['ansible_host'] }}:6443
-          - --certificate-authority={{ lookup('env', 'HOME') }}/.kube/{{ env }}/ca.crt
-          - --embed-certs=true
+    - name: Set kubectl cluster entry for the new cluster
+      ansible.builtin.command: |
+        kubectl config set-cluster {{ env }}-cluster \
+          --server=https://{{ hostvars['c01']['ansible_host'] }}:6443 \
+          --certificate-authority={{ lookup('env', 'HOME') }}/.kube/{{ env }}/ca.crt \
+          --embed-certs=true
       register: output
       changed_when: output.rc == 0
 
     - name: Set kubectl admin credentials for the new cluster
-      ansible.builtin.command:
-        argv:
-          - kubectl
-          - config
-          - set-credentials {{ env }}-admin
-          - --client-certificate={{ lookup('env', 'HOME') }}/.kube/{{ env }}/admin.crt
-          - --client-key={{ lookup('env', 'HOME') }}/.kube/{{ env }}/admin.key
-          - --embed-certs=true
+      ansible.builtin.command: |
+        kubectl config set-credentials {{ env }}-admin \
+          --client-certificate={{ lookup('env', 'HOME') }}/.kube/{{ env }}/admin.crt \
+          --client-key={{ lookup('env', 'HOME') }}/.kube/{{ env }}/admin.key \
+          --embed-certs=true
       register: output
       changed_when: output.rc == 0
 
