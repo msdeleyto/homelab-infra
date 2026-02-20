@@ -9,6 +9,7 @@ apt_packages:
 pip_packages:
 - proxmoxer==2.2.0
 - pexpect
+- prometheus-pve-exporter
 user:
   name: admin
   groups:
