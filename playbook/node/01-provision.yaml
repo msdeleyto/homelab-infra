@@ -168,20 +168,13 @@
 - name: Add nodes public keys to main pve known hosts
   hosts: pve_main
   tasks:
-    - name: Scan SSH keys of nodes
-      ansible.builtin.command: "ssh-keyscan -H {{ hostvars[item].ansible_host }}"
-      loop: "{{ groups['nodes'] }}"
-      register: ssh_scan
-      changed_when: false
-
-    - name: Add nodes SSH keys to known_hosts
+    - name: Add pve workers SSH keys to known_hosts
       ansible.builtin.known_hosts:
-        path: /root/.ssh/known_hosts
-        name: "{{ item.item }}"
-        key: "{{ item.stdout }}"
+        name: "{{ hostvars[item].ansible_host }}"
         state: present
-      loop: "{{ ssh_scan.results }}"
-      when: item.stdout is defined and item.stdout != ""
+        key: "{{ lookup('pipe', 'ssh-keyscan {{ hostvars[item].ansible_host }}') }}"
+        hash_host: true
+      with_items: "{{ groups['nodes'] }}"
 
 - name: Register main pve SSH public key
   hosts: localhost
