@@ -1,1 +1,2 @@
 env: prod
+cluster_lb_ip: 192.168.10.80

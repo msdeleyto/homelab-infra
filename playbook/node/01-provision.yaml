@@ -168,7 +168,7 @@
 - name: Add nodes public keys to main pve known hosts
   hosts: pve_main
   tasks:
-    - name: Add pve workers SSH keys to known_hosts
+    - name: Add nodes SSH keys to known_hosts
       ansible.builtin.known_hosts:
         name: "{{ hostvars[item].ansible_host }}"
         state: present

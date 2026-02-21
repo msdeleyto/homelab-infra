@@ -5,7 +5,7 @@ ssh_public_key  = "{{ lookup('file', lookup('env','HOME') + '/.ssh/id_ed25519.pu
 template_name   = "cloudinit-template"
 ciuser          = "ubuntu"
 vm_list = [
-{% for vm in groups['nodes'] %}
+{% for vm in groups['nodes'] | union(groups['cluster_lb']) %}
 {
   name          = "{{ vm }}",
   proxmox_node  = "{{ hostvars[vm].proxmox_node }}",

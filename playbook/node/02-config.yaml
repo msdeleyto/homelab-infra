@@ -1,4 +1,42 @@
 ---
+- name: Configure VM cluster load balancers
+  hosts: cluster_lb
+  become: true
+  tasks:
+    - name: Ensure the machine hostname matches the inventory
+      ansible.builtin.command: hostnamectl set-hostname '{{ inventory_hostname }}'
+      register: output
+      changed_when: output.rc != 0
+
+    - name: Install apt packages
+      ansible.builtin.apt:
+        name:
+          - sudo
+          - haproxy
+          - keepalived
+        state: present
+        update_cache: true
+
+    - name: Create the haproxy config file
+      ansible.builtin.template:
+        src: templates/haproxy.cfg.j2
+        dest: /etc/haproxy/haproxy.cfg
+        mode: '0644'
+
+    - name: Create the keepalived config file
+      ansible.builtin.template:
+        src: templates/keepalived.conf.j2
+        dest: /etc/keepalived/keepalived.conf
+        mode: '0644'
+
+    - name: Restart services
+      ansible.builtin.systemd_service:
+        name: '{{ item }}'
+        state: restarted
+      loop:
+        - haproxy
+        - keepalived
+
 - name: Configure VM nodes
   hosts: nodes
   become: true

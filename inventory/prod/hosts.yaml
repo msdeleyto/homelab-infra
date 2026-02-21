@@ -22,6 +22,7 @@ pves:
   children:
     pve_main:
     pve_workers:
+
 cp_nodes:
   hosts:
     c01:
@@ -69,7 +70,7 @@ worker_nodes:
       role: worker
       size: worker
       memory: 20480
-      cores: 10
+      cores: 8
       os_disk: 64G
       longhorn_disk: 128G
       mac_address: 02:00:00:D2:EC:4F
@@ -81,7 +82,7 @@ worker_nodes:
       role: worker
       size: worker
       memory: 20480
-      cores: 10
+      cores: 8
       os_disk: 64G
       longhorn_disk: 128G
       mac_address: 02:00:00:D2:EC:50
@@ -90,3 +91,28 @@ nodes:
   children:
     cp_nodes:
     worker_nodes:
+
+cluster_lb:
+  hosts:
+    lb01:
+      ansible_host: 192.168.10.70
+      ansible_user: ubuntu
+      proxmox_node: pve01
+      memory: 512
+      cores: 1
+      os_disk: 8G
+      mac_address: 02:00:00:D2:FC:00
+      ipconfig: ip=192.168.10.70/24,gw=192.168.10.1
+      keepalived_state: MASTER
+      keepalived_priority: 200
+    lb02:
+      ansible_host: 192.168.10.71
+      ansible_user: ubuntu
+      proxmox_node: pve02
+      memory: 512
+      cores: 1
+      os_disk: 8G
+      mac_address: 02:00:00:D2:FC:01
+      ipconfig: ip=192.168.10.71/24,gw=192.168.10.1
+      keepalived_state: BACKUP
+      keepalived_priority: 100
