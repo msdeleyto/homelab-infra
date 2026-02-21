@@ -193,6 +193,14 @@
         user: ubuntu
         key: "{{ hostvars['localhost'].main_ssh_pub_key.content | b64decode }}"
 
+- name: Distribute main node SSH public key to cluster lb
+  hosts: cluster_lb
+  tasks:
+    - name: Add main node SSH public key to authorized keys
+      ansible.posix.authorized_key:
+        user: ubuntu
+        key: "{{ hostvars['localhost'].main_ssh_pub_key.content | b64decode }}"
+
 - name: Create the cluster poweroff script
   hosts: pve01
   tasks:
