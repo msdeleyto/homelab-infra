@@ -72,13 +72,6 @@
         special_time: reboot
         job: '/usr/sbin/ethtool -s {{ network_interface }} wol g'
 
-    - name: Create job to boot worker node
-      ansible.builtin.cron:
-        name: 'Boot worker node'
-        special_time: reboot
-        job: '/usr/bin/sleep 60 && /usr/bin/wakeonlan {{ pve.macaddrs }}'
-      when: inventory_hostname == 'pve01' and pve.macaddrs is defined
-
     - name: Create the user groups if needed
       ansible.builtin.group:
         name: '{{ item }}'
@@ -234,3 +227,21 @@
       ansible.posix.authorized_key:
         user: root
         key: "{{ hostvars['localhost'].main_ssh_pub_key.content | b64decode }}"
+
+- name: Register worker nodes mac addresses
+  hosts: pve_workers
+  gather_facts: yes
+  tasks:
+    - name: Register the mac address
+      ansible.builtin.set_fact:
+        host_mac: "{{ ansible_default_ipv4.macaddress }}"
+
+- name: Configure main pve node cronjob to wake worker nodes on boot
+  hosts: pve_main
+  tasks:
+    - name: Create job to boot worker nodes
+      ansible.builtin.cron:
+        name: 'Boot worker nodes'
+        special_time: reboot
+        job: "/usr/bin/sleep 60 && /usr/bin/wakeonlan {{ hostvars[item]['host_mac'] }}"
+      loop: "{{ groups['pve_workers'] }}"
