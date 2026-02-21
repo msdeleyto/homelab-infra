@@ -42,3 +42,16 @@ variable "vm_list" {
     ipconfig      = string
   }))
 }
+
+variable "cluster_lb_list" {
+  description = "List of Cluster LB vms to create"
+  type = list(object({
+    name          = string
+    proxmox_node  = string
+    memory        = string
+    cores         = string
+    os_disk       = string
+    macaddr       = string
+    ipconfig      = string
+  }))
+}
