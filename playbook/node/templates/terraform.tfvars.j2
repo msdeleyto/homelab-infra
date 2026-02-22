@@ -5,7 +5,7 @@ ssh_public_key  = "{{ lookup('file', lookup('env','HOME') + '/.ssh/id_ed25519.pu
 template_name   = "cloudinit-template"
 ciuser          = "ubuntu"
 vm_list = [
-{% for vm in groups['nodes'] %}
+{% for vm in groups['vms'] %}
 {
   name          = "{{ vm }}",
   proxmox_node  = "{{ hostvars[vm].proxmox_node }}",
@@ -14,20 +14,9 @@ vm_list = [
   os_disk       = "{{ hostvars[vm].os_disk }}",
   longhorn_disk = "{{ hostvars[vm].longhorn_disk }}",
   macaddr       = "{{ hostvars[vm].mac_address }}",
-  ipconfig      = "{{ hostvars[vm].ipconfig }}"
-}{% if not loop.last %},{% endif %}
-{% endfor %}
-]
-cluster_lb_list = [
-{% for vm in groups['cluster_lb'] %}
-{
-  name          = "{{ vm }}",
-  proxmox_node  = "{{ hostvars[vm].proxmox_node }}",
-  memory        = "{{ hostvars[vm].memory }}",
-  cores         = "{{ hostvars[vm].cores }}",
-  os_disk       = "{{ hostvars[vm].os_disk }}",
-  macaddr       = "{{ hostvars[vm].mac_address }}",
-  ipconfig      = "{{ hostvars[vm].ipconfig }}"
+  ipconfig      = "{{ hostvars[vm].ipconfig }}",
+  startup_order = "{{ hostvars[vm].startup_order }}",
+  startup_delay = "{{ hostvars[vm].startup_delay }}"
 }{% if not loop.last %},{% endif %}
 {% endfor %}
 ]

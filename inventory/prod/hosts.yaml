@@ -102,7 +102,7 @@ nodes:
     cp_nodes:
     worker_nodes:
 
-cluster_lb:
+lbs:
   hosts:
     lb01:
       ansible_host: 192.168.10.70
@@ -111,6 +111,7 @@ cluster_lb:
       memory: 512
       cores: 1
       os_disk: 8G
+      longhorn_disk: null
       mac_address: 02:00:00:D2:FC:00
       ipconfig: ip=192.168.10.70/24,gw=192.168.10.1
       startup_order: 1
@@ -124,9 +125,15 @@ cluster_lb:
       memory: 512
       cores: 1
       os_disk: 8G
+      longhorn_disk: null
       mac_address: 02:00:00:D2:FC:01
       ipconfig: ip=192.168.10.71/24,gw=192.168.10.1
       startup_order: 1
       startup_delay: 0
       keepalived_state: BACKUP
       keepalived_priority: 100
+
+vms:
+  children:
+    lbs:
+    nodes:

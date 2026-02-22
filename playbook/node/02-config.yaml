@@ -82,7 +82,7 @@
   hosts: cp_nodes
   become: true
   tasks:
-    #--flannel-backend=none --disable-network-policy"
+    # --flannel-backend=none --disable-network-policy"
     - name: Install k3s on the main control plane node
       ansible.builtin.command: sh /tmp/install_k3s.sh
       environment:

@@ -230,7 +230,7 @@
 
 - name: Register worker nodes mac addresses
   hosts: pve_workers
-  gather_facts: yes
+  gather_facts: true
   tasks:
     - name: Register the mac address
       ansible.builtin.set_fact:

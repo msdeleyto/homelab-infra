@@ -165,16 +165,22 @@
         workspace: '{{ env }}'
         state: present
 
-- name: Add nodes public keys to main pve known hosts
+- name: Add VMs public keys to main pve known hosts
   hosts: pve_main
   tasks:
-    - name: Add nodes SSH keys to known_hosts
+    - name: Empty the known hosts file to avoid conflicts
+      ansible.builtin.copy:
+        src: /dev/null
+        dest: "lookup('env', 'HOME')/.ssh/known_hosts"
+        mode: '0600'
+
+    - name: Add VMs SSH keys to known_hosts
       ansible.builtin.known_hosts:
         name: "{{ hostvars[item].ansible_host }}"
         state: present
         key: "{{ lookup('pipe', 'ssh-keyscan {{ hostvars[item].ansible_host }}') }}"
         hash_host: true
-      with_items: "{{ groups['nodes'] }}"
+      with_items: "{{ groups['vms'] }}"
 
 - name: Register main pve SSH public key
   hosts: localhost
@@ -185,16 +191,8 @@
       delegate_to: pve01
       register: main_ssh_pub_key
 
-- name: Distribute main node SSH public key to nodes
-  hosts: nodes
-  tasks:
-    - name: Add main node SSH public key to authorized keys
-      ansible.posix.authorized_key:
-        user: ubuntu
-        key: "{{ hostvars['localhost'].main_ssh_pub_key.content | b64decode }}"
-
-- name: Distribute main node SSH public key to cluster lb
-  hosts: cluster_lb
+- name: Distribute main node SSH public key to VMs
+  hosts: vms
   tasks:
     - name: Add main node SSH public key to authorized keys
       ansible.posix.authorized_key:

@@ -37,22 +37,7 @@ variable "vm_list" {
     memory        = string
     cores         = string
     os_disk       = string
-    longhorn_disk = string
-    macaddr       = string
-    ipconfig      = string
-    startup_order = number
-    startup_delay = number
-  }))
-}
-
-variable "cluster_lb_list" {
-  description = "List of Cluster LB vms to create"
-  type = list(object({
-    name          = string
-    proxmox_node  = string
-    memory        = string
-    cores         = string
-    os_disk       = string
+    longhorn_disk = optional(string)
     macaddr       = string
     ipconfig      = string
     startup_order = number

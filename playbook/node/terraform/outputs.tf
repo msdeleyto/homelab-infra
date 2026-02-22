@@ -1,13 +1,6 @@
-output "node_names" {
-  description = "Name list of the deployed nodes"
+output "vm_names" {
+  description = "Name list of the deployed vms"
   value = [
-    for node in proxmox_vm_qemu.nodes : node.name
-  ]
-}
-
-output "cluster_lb_names" {
-  description = "Name list of the deployed cluster load balancers"
-  value = [
-    for cluster_lb in proxmox_vm_qemu.cluster_lbs : cluster_lb.name
+    for vm in proxmox_vm_qemu.vms : vm.name
   ]
 }
