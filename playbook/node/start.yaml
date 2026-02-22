@@ -1,0 +1,42 @@
+- name: Start the VMs
+  hosts: localhost
+  tasks:
+    - name: Start lb VMs
+      community.proxmox.proxmox_kvm:
+        api_user: root@pam
+        api_password: '{{ pve.root_password }}'
+        api_host: "{{ hostvars[hostvars[item]['proxmox_node']]['ansible_host'] }}"
+        name: "{{ item }}"
+        node: "{{ hostvars[item]['proxmox_node'] }}"
+        state: started
+      loop: "{{ groups['lbs'] }}"
+
+    - name: Sleep for 30 seconds
+      ansible.builtin.wait_for:
+        timeout: 30
+      delegate_to: localhost
+
+    - name: Start cp VMs
+      community.proxmox.proxmox_kvm:
+        api_user: root@pam
+        api_password: '{{ pve.root_password }}'
+        api_host: "{{ hostvars[hostvars[item]['proxmox_node']]['ansible_host'] }}"
+        name: "{{ item }}"
+        node: "{{ hostvars[item]['proxmox_node'] }}"
+        state: started
+      loop: "{{ groups['cp_nodes'] }}"
+
+    - name: Sleep for 60 seconds
+      ansible.builtin.wait_for:
+        timeout: 60
+      delegate_to: localhost
+
+    - name: Start worker VMs
+      community.proxmox.proxmox_kvm:
+        api_user: root@pam
+        api_password: '{{ pve.root_password }}'
+        api_host: "{{ hostvars[hostvars[item]['proxmox_node']]['ansible_host'] }}"
+        name: "{{ item }}"
+        node: "{{ hostvars[item]['proxmox_node'] }}"
+        state: started
+      loop: "{{ groups['worker_nodes'] }}"

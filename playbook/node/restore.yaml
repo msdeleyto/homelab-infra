@@ -10,7 +10,7 @@
         state: rollback
         snapname: 'snapshot-{{ item }}'
         retention: 1
-      loop: "{{ groups['nodes'] }}"
+      loop: "{{ groups['vms'] }}"
 
     - name: Start VM
       community.proxmox.proxmox_kvm:
@@ -20,4 +20,4 @@
         name: "{{ item }}"
         node: "{{ hostvars[item]['proxmox_node'] }}"
         state: started
-      loop: "{{ groups['nodes'] }}"
+      loop: "{{ groups['vms'] }}"

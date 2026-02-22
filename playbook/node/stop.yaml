@@ -1,0 +1,13 @@
+- name: Stop the VMs
+  hosts: localhost
+  tasks:
+    - name: Stop VM
+      community.proxmox.proxmox_kvm:
+        api_user: root@pam
+        api_password: '{{ pve.root_password }}'
+        api_host: "{{ hostvars[hostvars[item]['proxmox_node']]['ansible_host'] }}"
+        name: "{{ item }}"
+        node: "{{ hostvars[item]['proxmox_node'] }}"
+        state: stopped
+        force: true
+      loop: "{{ groups['vms'] }}"
