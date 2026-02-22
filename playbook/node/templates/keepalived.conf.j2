@@ -9,7 +9,7 @@ vrrp_script chk_haproxy {
 }
 
 vrrp_instance haproxy-vip {
-    interface eth1
+    interface eth0
     state {{ keepalived_state }}
     priority {{ keepalived_priority }}
 

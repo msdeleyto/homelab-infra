@@ -40,6 +40,8 @@ variable "vm_list" {
     longhorn_disk = string
     macaddr       = string
     ipconfig      = string
+    startup_order = number
+    startup_delay = number
   }))
 }
 
@@ -53,5 +55,7 @@ variable "cluster_lb_list" {
     os_disk       = string
     macaddr       = string
     ipconfig      = string
+    startup_order = number
+    startup_delay = number
   }))
 }
