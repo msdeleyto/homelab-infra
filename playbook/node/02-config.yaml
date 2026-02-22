@@ -1,6 +1,6 @@
 ---
 - name: Configure VM cluster load balancers
-  hosts: cluster_lb
+  hosts: lbs
   become: true
   tasks:
     - name: Ensure the machine hostname matches the inventory
