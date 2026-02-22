@@ -12,7 +12,9 @@ vm_list = [
   memory        = "{{ hostvars[vm].memory }}",
   cores         = "{{ hostvars[vm].cores }}",
   os_disk       = "{{ hostvars[vm].os_disk }}",
+{% if hostvars[vm].longhorn_disk is defined %}
   longhorn_disk = "{{ hostvars[vm].longhorn_disk }}",
+{% endif %}
   macaddr       = "{{ hostvars[vm].mac_address }}",
   ipconfig      = "{{ hostvars[vm].ipconfig }}",
   startup_order = "{{ hostvars[vm].startup_order }}",

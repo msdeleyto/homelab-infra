@@ -189,7 +189,7 @@
     - name: Set kubectl cluster entry for the new cluster
       ansible.builtin.command: |
         kubectl config set-cluster {{ env }}-cluster \
-          --server=https://{{ hostvars['c01']['ansible_host'] }}:6443 \
+          --server=https://{{ cluster_lb_ip }}:6443 \
           --certificate-authority={{ lookup('env', 'HOME') }}/.kube/{{ env }}/ca.crt \
           --embed-certs=true
       register: output

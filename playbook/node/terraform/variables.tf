@@ -37,7 +37,7 @@ variable "vm_list" {
     memory        = string
     cores         = string
     os_disk       = string
-    longhorn_disk = optional(string)
+    longhorn_disk = optional(string, null)
     macaddr       = string
     ipconfig      = string
     startup_order = number
