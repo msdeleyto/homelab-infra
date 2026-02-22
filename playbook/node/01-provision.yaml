@@ -165,7 +165,7 @@
         workspace: '{{ env }}'
         state: present
 
-- name: Add VMs public keys to main pve known hosts
+- name: Add machine public keys to main pve known hosts
   hosts: pve_main
   tasks:
     - name: Empty the known hosts file to avoid conflicts
@@ -173,6 +173,14 @@
         src: /dev/null
         dest: /root/.ssh/known_hosts
         mode: '0600'
+
+    - name: Add pve workers SSH keys to known_hosts
+      ansible.builtin.known_hosts:
+        name: "{{ hostvars[item].ansible_host }}"
+        state: present
+        key: "{{ lookup('pipe', 'ssh-keyscan {{ hostvars[item].ansible_host }}') }}"
+        hash_host: true
+      with_items: "{{ groups['pve_workers'] }}"
 
     - name: Add VMs SSH keys to known_hosts
       ansible.builtin.known_hosts:
