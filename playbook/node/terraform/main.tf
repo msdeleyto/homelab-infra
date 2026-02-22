@@ -24,7 +24,6 @@ resource "proxmox_vm_qemu" "vms" {
           storage  = "local-lvm"
           size     = var.vm_list[count.index].os_disk
           discard  = true
-          iothread = true
         }
       }
       dynamic "scsi1" {
@@ -35,7 +34,6 @@ resource "proxmox_vm_qemu" "vms" {
             storage  = "local-lvm"
             size     = var.vm_list[count.index].longhorn_disk
             discard  = true
-            iothread = true
           }
         }
       }
