@@ -153,6 +153,16 @@
 - name: Create snapshots of the VMs configured
   hosts: localhost
   tasks:
+    - name: Delete previous snapshot VM
+      community.proxmox.proxmox_snap:
+        api_user: root@pam
+        api_password: '{{ pve.root_password }}'
+        api_host: "{{ hostvars[hostvars[item]['proxmox_node']]['ansible_host'] }}"
+        hostname: "{{ item }}"
+        state: absent
+        snapname: "snapshot-{{ item }}"
+      loop: "{{ groups['nodes'] }}"
+
     - name: Create snapshot of the VM
       community.proxmox.proxmox_snap:
         api_user: root@pam
@@ -160,7 +170,7 @@
         api_host: "{{ hostvars[hostvars[item]['proxmox_node']]['ansible_host'] }}"
         hostname: "{{ item }}"
         state: present
-        snapname: 'snapshot-{{ item }}'
+        snapname: "snapshot-{{ item }}"
         retention: 1
       loop: "{{ groups['nodes'] }}"
 
