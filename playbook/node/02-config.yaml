@@ -82,22 +82,22 @@
   hosts: cp_nodes
   become: true
   tasks:
-    # --flannel-backend=none --disable-network-policy --tls-san={{ cluster_cp_dns }}"
+    # --tls-san={{ cluster_cp_dns }}"
     - name: Install k3s on the main control plane node
       ansible.builtin.command: sh /tmp/install_k3s.sh
       environment:
         INSTALL_K3S_VERSION: '{{ k3s_version }}'
-        INSTALL_K3S_EXEC: "server --token {{ node.k3s_token }} --disable=traefik"
+        INSTALL_K3S_EXEC: "server --token {{ node.k3s_token }} --flannel-backend=none --disable=traefik --disable-network-policy"
       when: inventory_hostname == 'c01'
       register: output
       changed_when: output.rc != 0
 
-    # --flannel-backend=none --disable-network-policy --tls-san={{ cluster_cp_dns }}"
+    # --tls-san={{ cluster_cp_dns }}"
     - name: Install k3s on the other control plane nodes
       ansible.builtin.command: sh /tmp/install_k3s.sh
       environment:
         INSTALL_K3S_VERSION: '{{ k3s_version }}'
-        INSTALL_K3S_EXEC: "server --token {{ node.k3s_token }} --server=https://{{ hostvars['c01']['ansible_host'] }}:6443 --disable=traefik"
+        INSTALL_K3S_EXEC: "server --token {{ node.k3s_token }} --server=https://{{ hostvars['c01']['ansible_host'] }}:6443 --flannel-backend=none --disable=traefik --disable-network-policy"
       when: inventory_hostname != 'c01'
       register: output
       changed_when: output.rc != 0
@@ -148,8 +148,7 @@
         name: "{{ item }}"
         taints:
           - effect: NoSchedule
-            key: role
-            value: cp
+            key: node-role.kubernetes.io/control-plane
       loop: "{{ groups['cp_nodes'] }}"
 
 - name: Create snapshots of the VMs configured
@@ -218,3 +217,30 @@
       ansible.builtin.command: "kubectl config use-context {{ env }}"
       register: output
       changed_when: output.rc == 0
+
+- name: Install cilium cli
+  hosts: localhost
+  tasks:
+    - name: Download cilium cli
+      ansible.builtin.get_url:
+        url: https://github.com/cilium/cilium-cli/releases/download/v0.19.0/cilium-linux-amd64.tar.gz
+        dest: /tmp/cilium-linux-amd64.tar.gz
+        mode: '0770'
+
+    - name: Download cilium cli checksum
+      ansible.builtin.get_url:
+        url: https://github.com/cilium/cilium-cli/releases/download/v0.19.0/cilium-linux-amd64.tar.gz.sha256sum
+        dest: /tmp/cilium-linux.tar.gz.sha256sum
+        mode: '0770'
+
+    - name: Verify cilium
+      ansible.builtin.command: sha256sum --check cilium-linux.tar.gz.sha256sum
+      args:
+        chdir: /tmp
+      register: output
+      changed_when: output.rc != 0
+
+    - name: Extract cilium
+      ansible.builtin.unarchive:
+        src: /tmp/cilium-linux-amd64.tar.gz
+        dest: "{{ lookup('env', 'HOME') }}/.local/bin"
