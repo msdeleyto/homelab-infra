@@ -1,4 +1,3 @@
-sleep_time_seconds: 32400
 apt_packages:
 - sudo
 - libguestfs-tools

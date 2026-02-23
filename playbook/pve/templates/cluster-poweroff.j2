@@ -1,15 +1,6 @@
 #!/bin/bash
 
-set -euo pipefail
-
-SLEEP_TIME_SECONDS_FALLBACK={{ sleep_time_seconds }}
-
-sleep_time_seconds=$1
-
-if [[ -z ${sleep_time_seconds:-} ]]; then
-  echo "No time to sleep specified... using fallback of ${SLEEP_TIME_SECONDS_FALLBACK} seconds"
-  sleep_time_seconds=${SLEEP_TIME_SECONDS_FALLBACK}
-fi
+set -eu
 
 pve_workers="{% for host in groups['pve_workers'] %}{{ hostvars[host].ansible_host }}{% if not loop.last %} {% endif %}{% endfor %}"
 
@@ -18,8 +9,5 @@ for pve_ip in ${pve_workers}; do
   ssh -o BatchMode=yes -o ConnectTimeout=5 root@${pve_ip} "/usr/sbin/poweroff"
 done
 
-echo "Wait before powering off the main pve"
-sleep 10
-
-echo "Waking up the main pve in ${sleep_time_seconds} seconds"
-rtcwake -m off -s ${sleep_time_seconds}
+echo "Powering off the main pve"
+/usr/sbin/poweroff
