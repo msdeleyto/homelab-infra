@@ -137,7 +137,6 @@
           metadata:
             name: "{{ item }}"
             labels:
-              size: "{{ hostvars[item].size }}"
               role: "{{ hostvars[item].role }}"
       loop: "{{ groups['nodes'] }}"
 

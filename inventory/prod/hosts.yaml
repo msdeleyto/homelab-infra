@@ -30,7 +30,6 @@ cp_nodes:
       ansible_user: ubuntu
       proxmox_node: pve01
       role: cp
-      size: cp
       memory: 4096
       cores: 2
       os_disk: 64G
@@ -44,7 +43,6 @@ cp_nodes:
 #      ansible_user: ubuntu
 #      proxmox_node: pve01
 #      role: cp
-#      size: cp
 #      memory: 4096
 #      cores: 2
 #      os_disk: 64G
@@ -58,7 +56,6 @@ cp_nodes:
 #      ansible_user: ubuntu
 #      proxmox_node: pve02
 #      role: cp
-#      size: cp
 #      memory: 4096
 #      cores: 2
 #      os_disk: 64G
@@ -74,7 +71,6 @@ worker_nodes:
       ansible_user: ubuntu
       proxmox_node: pve01
       role: worker
-      size: worker
       memory: 20480
       cores: 8
       os_disk: 64G
@@ -88,7 +84,6 @@ worker_nodes:
       ansible_user: ubuntu
       proxmox_node: pve02
       role: worker
-      size: worker
       memory: 20480
       cores: 8
       os_disk: 64G
