@@ -82,28 +82,12 @@
   hosts: cp_nodes
   become: true
   tasks:
-    - name: Create k3s systemd override directory
-      ansible.builtin.file:
-        path: /etc/systemd/system/k3s.service.d
-        state: directory
-        mode: '0755'
-
-    - name: Add startup delay for k3s
-      ansible.builtin.copy:
-        dest: /etc/systemd/system/k3s.service.d/override.conf
-        content: |
-          [Service]
-          ExecStartPre=/bin/sleep 10
-        mode: '0644'
-      notify: Reload systemd
-
     # --flannel-backend=none --disable-network-policy"
     - name: Install k3s on the main control plane node
       ansible.builtin.command: sh /tmp/install_k3s.sh
       environment:
         INSTALL_K3S_VERSION: '{{ k3s_version }}'
-        INSTALL_K3S_EXEC: "server --cluster-init --tls-san={{ cluster_lb_ip }} --disable=traefik"
-        K3S_TOKEN: "{{ node.k3s_token }}"
+        INSTALL_K3S_EXEC: "server --token {{ node.k3s_token }} --tls-san={{ cluster_cp_dns }} --disable=traefik"
       when: inventory_hostname == 'c01'
       register: output
       changed_when: output.rc != 0
@@ -113,16 +97,10 @@
       ansible.builtin.command: sh /tmp/install_k3s.sh
       environment:
         INSTALL_K3S_VERSION: '{{ k3s_version }}'
-        INSTALL_K3S_EXEC: "server --server=https://{{ hostvars['c01']['ansible_host'] }}:6443 --tls-san={{ cluster_lb_ip }} --disable=traefik"
-        K3S_TOKEN: "{{ node.k3s_token }}"
+        INSTALL_K3S_EXEC: "server --token {{ node.k3s_token }} --server=https://{{ hostvars['c01']['ansible_host'] }}:6443 --tls-san={{ cluster_cp_dns }} --disable=traefik"
       when: inventory_hostname != 'c01'
       register: output
       changed_when: output.rc != 0
-
-  handlers:
-    - name: Reload systemd
-      ansible.builtin.systemd:
-        daemon_reload: true
 
 - name: Register the control plane token
   hosts: localhost
