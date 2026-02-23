@@ -6,7 +6,7 @@ SLEEP_TIME_SECONDS_FALLBACK={{ sleep_time_seconds }}
 
 sleep_time_seconds=$1
 
-if [[ -n ${sleep_time_seconds} ]];
+if [[ -z ${sleep_time_seconds:-} ]]; then
   echo "No time to sleep specified... using fallback of ${SLEEP_TIME_SECONDS_FALLBACK} seconds"
   sleep_time_seconds=${SLEEP_TIME_SECONDS_FALLBACK}
 fi
