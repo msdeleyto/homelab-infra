@@ -1,0 +1,16 @@
+#!/bin/bash
+
+set -euo pipefail
+
+pve_workers="{% for host in groups['pve_workers'] %}{{ hostvars[host].ansible_host }}{% if not loop.last %} {% endif %}{% endfor %}"
+
+echo "Powering off workers"
+for pve_ip in ${pve_workers}; do
+  ssh -o BatchMode=yes -o ConnectTimeout=5 root@${pve_ip} "/usr/sbin/shutdown -h now"
+done
+
+echo "Wait before powering off the main pve"
+sleep 10
+
+echo "Waking up the main pve in {{ pve.sleep_time_seconds }} seconds"
+rtcwake -m off -s {{ pve.sleep_time_seconds }}
