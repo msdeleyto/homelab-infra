@@ -250,4 +250,4 @@
         name: 'Shutdown the node'
         minute: '0'
         hour: '0'
-        job: '/root/cluster-poweroff'
+        job: '/root/cluster-poweroff {{ sleep_time_seconds }}'

@@ -2,6 +2,15 @@
 
 set -euo pipefail
 
+SLEEP_TIME_SECONDS_FALLBACK={{ sleep_time_seconds }}
+
+sleep_time_seconds=$1
+
+if [[ -n ${sleep_time_seconds} ]];
+  echo "No time to sleep specified... using fallback of ${SLEEP_TIME_SECONDS_FALLBACK} seconds"
+  sleep_time_seconds=${SLEEP_TIME_SECONDS_FALLBACK}
+fi
+
 pve_workers="{% for host in groups['pve_workers'] %}{{ hostvars[host].ansible_host }}{% if not loop.last %} {% endif %}{% endfor %}"
 
 echo "Powering off workers"
