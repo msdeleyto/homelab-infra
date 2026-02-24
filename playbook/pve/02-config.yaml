@@ -236,9 +236,16 @@
       ansible.builtin.set_fact:
         host_mac: "{{ ansible_default_ipv4.macaddress }}"
 
-- name: Create the cluster poweroff and wake up script
+- name: Create the cluster poweroff and wake up cronjobs
   hosts: pve_main
   tasks:
+    - name: Create job to boot worker nodes
+      ansible.builtin.cron:
+        name: 'Boot worker nodes'
+        special_time: reboot
+        job: "/usr/bin/sleep 10 && /usr/bin/wakeonlan {{ hostvars[item]['host_mac'] }}"
+      loop: "{{ groups['pve_workers'] }}"
+
     - name: Create the cluster poweroff script
       ansible.builtin.template:
         src: templates/cluster-poweroff.j2
@@ -249,5 +256,5 @@
       ansible.builtin.cron:
         name: 'Shutdown the node'
         minute: '0'
-        hour: '0'
+        hour: '1'
         job: '/root/cluster-poweroff'
