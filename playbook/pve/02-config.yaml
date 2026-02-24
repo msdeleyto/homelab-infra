@@ -241,7 +241,7 @@
   tasks:
     - name: Create job to boot worker nodes
       ansible.builtin.cron:
-        name: 'Boot worker nodes'
+        name: 'Boot worker node {{ item }}'
         special_time: reboot
         job: "/usr/bin/sleep 10 && /usr/bin/wakeonlan {{ hostvars[item]['host_mac'] }}"
       loop: "{{ groups['pve_workers'] }}"
