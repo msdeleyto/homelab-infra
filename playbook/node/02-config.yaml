@@ -91,6 +91,31 @@
       register: output
       changed_when: output.rc != 0
 
+    - name: Deploy the CNI
+      block:
+        - name: Checkout the homelab repo
+          ansible.builtin.git:
+            repo: https://github.com/msdeleyto/homelab-manifests.git
+            dest: /tmp/homelab
+            single_branch: true
+            version: main
+
+        - name: Deploy
+          ansible.builtin.shell: /tmp/homelab/network/tooling/bootstrap
+          args:
+            executable: /bin/bash
+          environment:
+            INFRA_DOMAIN: '{{ cluster.secrets.infra.domain }}'
+            INFRA_LB_IP: '{{ cluster.secrets.infra.lb_ip }}'
+            INFRA_HA_VIP: '{{ cluster.secrets.infra.ha_vip }}'
+          register: output
+          changed_when: output.rc != 0
+      always:
+        - name: Remove the homelab directory
+          ansible.builtin.file:
+            path: /tmp/homelab
+            state: absent
+
     - name: Install k3s on the other control plane nodes
       ansible.builtin.command: sh /tmp/install_k3s.sh
       environment:
