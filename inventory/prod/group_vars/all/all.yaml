@@ -1,2 +1,2 @@
 env: prod
-cluster_cp_dns: cp.homelab
+cluster_ha_vip: 192.168.10.80

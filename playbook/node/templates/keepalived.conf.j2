@@ -16,7 +16,7 @@ vrrp_instance haproxy-vip {
     virtual_router_id 51
 
     virtual_ipaddress {
-        {{ cluster_lb_ip }}/24
+        {{ cluster_ha_vip }}/24
     }
 
     track_script {

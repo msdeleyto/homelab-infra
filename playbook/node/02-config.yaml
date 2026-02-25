@@ -82,22 +82,20 @@
   hosts: cp_nodes
   become: true
   tasks:
-    # --tls-san={{ cluster_cp_dns }}"
     - name: Install k3s on the main control plane node
       ansible.builtin.command: sh /tmp/install_k3s.sh
       environment:
         INSTALL_K3S_VERSION: '{{ k3s_version }}'
-        INSTALL_K3S_EXEC: "server --token {{ node.k3s_token }} --flannel-backend=none --disable=traefik --disable-network-policy"
+        INSTALL_K3S_EXEC: "server --cluster-init --tls-san={{ cluster_ha_vip }} --token {{ node.k3s_token }} --flannel-backend=none --disable-network-policy --disable-kube-proxy --disable=traefik --disable=servicelb"
       when: inventory_hostname == 'c01'
       register: output
       changed_when: output.rc != 0
 
-    # --tls-san={{ cluster_cp_dns }}"
     - name: Install k3s on the other control plane nodes
       ansible.builtin.command: sh /tmp/install_k3s.sh
       environment:
         INSTALL_K3S_VERSION: '{{ k3s_version }}'
-        INSTALL_K3S_EXEC: "server --token {{ node.k3s_token }} --server=https://{{ hostvars['c01']['ansible_host'] }}:6443 --flannel-backend=none --disable=traefik --disable-network-policy"
+        INSTALL_K3S_EXEC: "server --token {{ node.k3s_token }} --server=https://{{ cluster_ha_vip }}:6443 --tls-san={{ cluster_ha_vip }} --flannel-backend=none --disable-network-policy --disable-kube-proxy --disable=traefik"
       when: inventory_hostname != 'c01'
       register: output
       changed_when: output.rc != 0
@@ -120,7 +118,7 @@
       ansible.builtin.command: sh /tmp/install_k3s.sh
       environment:
         INSTALL_K3S_VERSION: '{{ k3s_version }}'
-        INSTALL_K3S_EXEC: "agent --server=https://{{ hostvars['c01'].ansible_host }}:6443 --token={{ hostvars['localhost'].cp_token.content | b64decode }}"
+        INSTALL_K3S_EXEC: "agent --server=https://{{ cluster_ha_vip }}:6443 --token={{ hostvars['localhost'].cp_token.content | b64decode }}"
       register: output
       changed_when: output.rc != 0
 
@@ -202,7 +200,7 @@
     - name: Set kubectl cluster entry for the new cluster
       ansible.builtin.command: |
         kubectl config set-cluster {{ env }}-cluster \
-          --server=https://{{ hostvars['c01'].ansible_host }}:6443 \
+          --server=https://{{ cluster_ha_vip }}:6443 \
           --certificate-authority={{ lookup('env', 'HOME') }}/.kube/{{ env }}/ca.crt \
           --embed-certs=true
       register: output

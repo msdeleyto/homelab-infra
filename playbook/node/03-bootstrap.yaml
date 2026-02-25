@@ -21,6 +21,8 @@
           environment:
             INFRA_ENV: '{{ env }}'
             INFRA_DOMAIN: '{{ cluster.secrets.infra.domain }}'
+            INFRA_LB_IP: '{{ cluster.secrets.infra.lb_ip }}'
+            INFRA_HA_VIP: '{{ cluster.secrets.infra.ha_vip }}'
             VAULT_ADMIN_PASSWORD: '{{ cluster.secrets.vault.vault.admin_password }}'
           register: output
           changed_when: output.rc != 0
