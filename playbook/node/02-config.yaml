@@ -98,6 +98,24 @@
       register: output
       changed_when: output.rc != 0
 
+    - name: Transfer the cluster's certificate authority to localhost
+      ansible.builtin.fetch:
+        src: /var/lib/rancher/k3s/server/tls/server-ca.crt
+        dest: "{{ lookup('env', 'HOME') }}/.kube/{{ env }}/ca.crt"
+        flat: true
+
+    - name: Transfer the cluster's admin user client certificate to localhost
+      ansible.builtin.fetch:
+        src: /var/lib/rancher/k3s/server/tls/client-admin.crt
+        dest: "{{ lookup('env', 'HOME') }}/.kube/{{ env }}/admin.crt"
+        flat: true
+
+    - name: Transfer the cluster's admin user client key to localhost
+      ansible.builtin.fetch:
+        src: /var/lib/rancher/k3s/server/tls/client-admin.key
+        dest: "{{ lookup('env', 'HOME') }}/.kube/{{ env }}/admin.key"
+        flat: true
+
 - name: Set kubectl context for the new cluster and install CNI
   hosts: localhost
   tasks:
@@ -248,28 +266,6 @@
         snapname: "snapshot-{{ item }}"
         retention: 1
       loop: "{{ groups['vms'] }}"
-
-- name: Pull cluster files to grant local access
-  hosts: c01
-  become: true
-  tasks:
-    - name: Transfer the cluster's certificate authority to localhost
-      ansible.builtin.fetch:
-        src: /var/lib/rancher/k3s/server/tls/server-ca.crt
-        dest: "{{ lookup('env', 'HOME') }}/.kube/{{ env }}/ca.crt"
-        flat: true
-
-    - name: Transfer the cluster's admin user client certificate to localhost
-      ansible.builtin.fetch:
-        src: /var/lib/rancher/k3s/server/tls/client-admin.crt
-        dest: "{{ lookup('env', 'HOME') }}/.kube/{{ env }}/admin.crt"
-        flat: true
-
-    - name: Transfer the cluster's admin user client key to localhost
-      ansible.builtin.fetch:
-        src: /var/lib/rancher/k3s/server/tls/client-admin.key
-        dest: "{{ lookup('env', 'HOME') }}/.kube/{{ env }}/admin.key"
-        flat: true
 
 - name: Install cilium cli
   hosts: localhost
