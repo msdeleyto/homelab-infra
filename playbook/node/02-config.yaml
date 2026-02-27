@@ -78,7 +78,7 @@
         dest: "/tmp/install_k3s.sh"
         mode: '0770'
 
-- name: Install k3s and configure CNI on the main control plane node
+- name: Install k3s on the main control plane node
   hosts: c01
   become: true
   tasks:
@@ -97,6 +97,37 @@
         INSTALL_K3S_VERSION: '{{ k3s_version }}'
       register: output
       changed_when: output.rc != 0
+
+- name: Set kubectl context for the new cluster and install CNI
+  hosts: localhost
+  tasks:
+    - name: Set kubectl cluster entry for the new cluster
+      ansible.builtin.command: |
+        kubectl config set-cluster {{ env }}-cluster \
+          --server=https://{{ cluster_ha_vip }}:6443 \
+          --certificate-authority={{ lookup('env', 'HOME') }}/.kube/{{ env }}/ca.crt \
+          --embed-certs=true
+      register: output
+      changed_when: output.rc == 0
+
+    - name: Set kubectl admin credentials for the new cluster
+      ansible.builtin.command: |
+        kubectl config set-credentials {{ env }}-admin \
+          --client-certificate={{ lookup('env', 'HOME') }}/.kube/{{ env }}/admin.crt \
+          --client-key={{ lookup('env', 'HOME') }}/.kube/{{ env }}/admin.key \
+          --embed-certs=true
+      register: output
+      changed_when: output.rc == 0
+
+    - name: Create kubectl context
+      ansible.builtin.command: "kubectl config set-context {{ env }} --cluster={{ env }}-cluster --user={{ env }}-admin"
+      register: output
+      changed_when: output.rc == 0
+
+    - name: Use the new context
+      ansible.builtin.command: "kubectl config use-context {{ env }}"
+      register: output
+      changed_when: output.rc == 0
 
     - name: Deploy the CNI
       block:
@@ -239,37 +270,6 @@
         src: /var/lib/rancher/k3s/server/tls/client-admin.key
         dest: "{{ lookup('env', 'HOME') }}/.kube/{{ env }}/admin.key"
         flat: true
-
-- name: Set kubectl context for the new cluster
-  hosts: localhost
-  tasks:
-    - name: Set kubectl cluster entry for the new cluster
-      ansible.builtin.command: |
-        kubectl config set-cluster {{ env }}-cluster \
-          --server=https://{{ cluster_ha_vip }}:6443 \
-          --certificate-authority={{ lookup('env', 'HOME') }}/.kube/{{ env }}/ca.crt \
-          --embed-certs=true
-      register: output
-      changed_when: output.rc == 0
-
-    - name: Set kubectl admin credentials for the new cluster
-      ansible.builtin.command: |
-        kubectl config set-credentials {{ env }}-admin \
-          --client-certificate={{ lookup('env', 'HOME') }}/.kube/{{ env }}/admin.crt \
-          --client-key={{ lookup('env', 'HOME') }}/.kube/{{ env }}/admin.key \
-          --embed-certs=true
-      register: output
-      changed_when: output.rc == 0
-
-    - name: Create kubectl context
-      ansible.builtin.command: "kubectl config set-context {{ env }} --cluster={{ env }}-cluster --user={{ env }}-admin"
-      register: output
-      changed_when: output.rc == 0
-
-    - name: Use the new context
-      ansible.builtin.command: "kubectl config use-context {{ env }}"
-      register: output
-      changed_when: output.rc == 0
 
 - name: Install cilium cli
   hosts: localhost
