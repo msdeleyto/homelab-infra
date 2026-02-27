@@ -191,7 +191,7 @@
         hostname: "{{ item }}"
         state: absent
         snapname: "snapshot-{{ item }}"
-      loop: "{{ groups['nodes'] }}"
+      loop: "{{ groups['vms'] }}"
 
     - name: Create snapshot of the VM
       community.proxmox.proxmox_snap:
@@ -202,7 +202,7 @@
         state: present
         snapname: "snapshot-{{ item }}"
         retention: 1
-      loop: "{{ groups['nodes'] }}"
+      loop: "{{ groups['vms'] }}"
 
 - name: Pull cluster files to grant local access
   hosts: c01
