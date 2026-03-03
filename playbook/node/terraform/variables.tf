@@ -41,6 +41,5 @@ variable "vm_list" {
     macaddr       = string
     ipconfig      = string
     startup_order = number
-    startup_delay = number
   }))
 }
