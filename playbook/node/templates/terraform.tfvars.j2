@@ -17,8 +17,7 @@ vm_list = [
 {% endif %}
   macaddr       = "{{ hostvars[vm].mac_address }}",
   ipconfig      = "{{ hostvars[vm].ipconfig }}",
-  startup_order = "{{ hostvars[vm].startup_order }}",
-  startup_delay = "{{ hostvars[vm].startup_delay }}"
+  startup_order = "{{ hostvars[vm].startup_order }}"
 }{% if not loop.last %},{% endif %}
 {% endfor %}
 ]

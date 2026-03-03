@@ -55,8 +55,7 @@ resource "proxmox_vm_qemu" "vms" {
   }
 
   startup_shutdown {
-    order         = var.vm_list[count.index].startup_order
-    startup_delay = var.vm_list[count.index].startup_delay
+    order = var.vm_list[count.index].startup_order
   }
 
   ipconfig0 = var.vm_list[count.index].ipconfig
