@@ -1,0 +1,59 @@
+---
+- name: Create snapshots of the VMs configured
+  hosts: localhost
+  tasks:
+    - name: Delete previous snapshot VM
+      community.proxmox.proxmox_snap:
+        api_user: root@pam
+        api_password: "{{ pve.root_password }}"
+        api_host: "{{ hostvars[hostvars[item]['proxmox_node']]['ansible_host'] }}"
+        hostname: "{{ item }}"
+        state: absent
+        snapname: "snapshot-{{ item }}"
+      loop: "{{ groups['vms'] }}"
+
+    - name: Create snapshot of the VM
+      community.proxmox.proxmox_snap:
+        api_user: root@pam
+        api_password: "{{ pve.root_password }}"
+        api_host: "{{ hostvars[hostvars[item]['proxmox_node']]['ansible_host'] }}"
+        hostname: "{{ item }}"
+        state: present
+        snapname: "snapshot-{{ item }}"
+        retention: 1
+      loop: "{{ groups['vms'] }}"
+
+- name: Update VMs
+  hosts: vms
+  become: true
+  tasks:
+    - name: Run apt update
+      ansible.builtin.apt:
+        update_cache: true
+        force_apt_get: true
+        cache_valid_time: 3600
+
+    - name: Run apt dist-upgrade
+      ansible.builtin.apt:
+        upgrade: dist
+
+    - name: Remove old packages and clean cache
+      ansible.builtin.apt:
+        autoremove: true
+        autoclean: true
+        clean: true
+
+    - name: Check if reboot required
+      ansible.builtin.stat:
+        path: /var/run/reboot-required
+      register: reboot_required_file
+
+    - name: Reboot if kernel updated
+      ansible.builtin.reboot:
+        msg: "Reboot initiated by Ansible for kernel updates"
+        connect_timeout: 5
+        reboot_timeout: 300
+        pre_reboot_delay: 0
+        post_reboot_delay: 30
+        test_command: uptime
+      when: reboot_required_file.stat.exists
