@@ -13,9 +13,7 @@
 
         - name: Deploy
           ansible.builtin.shell: |
-            /tmp/homelab/tooling/bootstrap \
-              "{{ playbook_dir }}/../../inventory/{{ env }}/group_vars/all/secrets.yaml" \
-              "{{ cluster.secret_files }}"
+            /tmp/homelab/tooling/bootstrap "{{ playbook_dir }}/../../inventory/{{ env }}/group_vars/all/secrets.yaml"
           args:
             executable: /bin/bash
           environment:
