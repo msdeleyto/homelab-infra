@@ -1,34 +1,28 @@
 ---
 - name: Provision the ISO images to autoinstall pve
   hosts: localhost
-  become: true
   tasks:
-    - name: Create the pve-install-repo.list file
-      ansible.builtin.copy:
-        content: deb http://download.proxmox.com/debian/pve bookworm pve-no-subscription
-        dest: /etc/apt/sources.list.d/pve-install-repo.list
-        mode: '0644'
+    - name: Ensure the pve directories exist
+      ansible.builtin.file:
+        path: "/tmp/pve/{{ item }}"
+        state: directory
+        mode: '0755'
+      loop:
+        - iso
+        - answers
+        - output
 
-    - name: Add the Proxmox VE repository key
-      ansible.builtin.apt_key:
-        url: https://enterprise.proxmox.com/debian/proxmox-release-bookworm.gpg
-        state: present
-
-    - name: Update apt repositories
-      ansible.builtin.apt:
-        update_cache: true
-
-    - name: Install required packages
-      ansible.builtin.apt:
-        name:
-          - xorriso
-          - proxmox-auto-install-assistant
-        state: present
+    - name: Ensure the pve answer directories exist
+      ansible.builtin.file:
+        path: "/tmp/pve/answers/{{ item }}"
+        state: directory
+        mode: '0755'
+      loop: "{{ groups['pves'] }}"
 
     - name: Create the answer files
       ansible.builtin.template:
         src: 'templates/{{ env }}/answer.toml.j2'
-        dest: '/tmp/answer_{{ item }}.toml'
+        dest: '/tmp/pve/answers/{{ item }}/answer.toml'
         mode: '0644'
       loop: "{{ groups['pves'] }}"
       vars:
@@ -37,25 +31,26 @@
     - name: Download the Proxmox VE ISO
       ansible.builtin.get_url:
         url: https://enterprise.proxmox.com/iso/proxmox-ve_8.4-1.iso
-        dest: /tmp/pve.iso
+        dest: /tmp/pve/iso/pve.iso
         mode: '0644'
 
-    - name: Duplicate the Proxmox VE ISO for each host
-      ansible.builtin.copy:
-        src: /tmp/pve.iso
-        dest: '/tmp/pve_{{ item }}.iso'
-        mode: '0644'
-      loop: "{{ groups['pves'] }}"
+    - name: Build the custom ISO with the autoinstall assistant
+      containers.podman.podman_image:
+        name: proxmox-auto-installer
+        path: proxmox-auto-installer-docker
 
-    - name: Run the Proxmox Auto Install Assistant to prepare the ISO
-      ansible.builtin.command: |
-        proxmox-auto-install-assistant prepare-iso /tmp/pve_'{{ item }}'.iso \
-          --fetch-from iso \
-          --answer-file /tmp/answer_'{{ item }}'.toml \
-          --output /tmp/pve_'{{ item }}'_auto.iso
+    - name: Run container
+      containers.podman.podman_container:
+        name: '{{ item }}-installer'
+        image: localhost/proxmox-auto-installer
+        command: /iso/pve.iso {{ item }}
+        volumes:
+          - /tmp/pve/iso:/iso:ro
+          - /tmp/pve/answers:/answers:ro
+          - /tmp/pve/output:/out
+        state: started
+        rm: true
       loop: "{{ groups['pves'] }}"
-      register: output
-      changed_when: output.rc != 0
 
     - name: Run Terraform to create test VMs with custom ISO
       when: env == 'test'

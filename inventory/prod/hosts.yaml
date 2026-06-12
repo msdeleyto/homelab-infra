@@ -15,9 +15,15 @@ pve_workers:
     pve02:
       ansible_host: 192.168.10.3
       ansible_user: root
-      network_interface: enp3s0
-      disk_model: HOGE*
+      network_interface: enp1s0
+      disk_model: GMK*
       vm_template_id: 9001
+    pve03:
+      ansible_host: 192.168.10.4
+      ansible_user: root
+      network_interface: enp3s0
+      disk_model: AirDisk*
+      vm_template_id: 9002
 pves:
   children:
     pve_main:
@@ -40,7 +46,7 @@ cp_nodes:
     c02:
       ansible_host: 192.168.10.51
       ansible_user: ubuntu
-      proxmox_node: pve01
+      proxmox_node: pve02
       role: cp
       memory: 4096
       cores: 2
@@ -52,7 +58,7 @@ cp_nodes:
     c03:
       ansible_host: 192.168.10.52
       ansible_user: ubuntu
-      proxmox_node: pve02
+      proxmox_node: pve03
       role: cp
       memory: 4096
       cores: 2
@@ -105,7 +111,7 @@ lbs:
       ipconfig: ip=192.168.10.70/24,gw=192.168.10.1
       startup_order: 1
       keepalived_state: MASTER
-      keepalived_priority: 200
+      keepalived_priority: 300
     lb02:
       ansible_host: 192.168.10.71
       ansible_user: ubuntu
@@ -115,6 +121,18 @@ lbs:
       os_disk: 8G
       mac_address: 02:00:00:D2:FC:01
       ipconfig: ip=192.168.10.71/24,gw=192.168.10.1
+      startup_order: 1
+      keepalived_state: BACKUP
+      keepalived_priority: 200
+    lb03:
+      ansible_host: 192.168.10.72
+      ansible_user: ubuntu
+      proxmox_node: pve03
+      memory: 512
+      cores: 1
+      os_disk: 8G
+      mac_address: 02:00:00:D2:FC:02
+      ipconfig: ip=192.168.10.72/24,gw=192.168.10.1
       startup_order: 1
       keepalived_state: BACKUP
       keepalived_priority: 100
