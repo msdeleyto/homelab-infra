@@ -108,7 +108,7 @@ CI (Terraform 1.13.3) runs `terraform validate` for `pve` only — `node` Terraf
 
 **CP nodes are tainted** — `node/02-config.yaml` applies `node-role.kubernetes.io/control-plane:NoSchedule` to all `cp_nodes`. Workloads must tolerate this or they only schedule on workers.
 
-**`pve/02-config.yaml` side effects** — Beyond cluster formation, this playbook also: disables PVE enterprise/Ceph repos and enables the no-subscription repo (required for `apt` to work on fresh installs); installs `prometheus-pve-exporter` as a systemd service (in its own venv at `/opt/prometheus-pve-exporter`) on all PVE hosts.
+**`pve/02-config.yaml` side effects** — Beyond cluster formation, this playbook also: disables PVE enterprise/Ceph repos and enables the no-subscription repo (required for `apt` to work on fresh installs); installs `prometheus-pve-exporter` as a systemd service (in its own venv at `/opt/prometheus-pve-exporter`) on all PVE hosts; installs `glances` as a systemd service (in its own venv at `/opt/glances`) on all PVE hosts, exposing a REST API on port `61208` for Home Assistant metric collection.
 
 **Longhorn prereqs** — `node/02-config.yaml` installs `open-iscsi` and `nfs-common` on all nodes and enables `iscsid`. Second disk (`/dev/sdb`) is auto-formatted as ext4 and mounted at `/var/lib/longhorn` via cloud-init snippet (`/var/lib/vz/snippets/longhorn-format.yml`). LB VMs have no `longhorn_disk` defined and get no second disk.
 

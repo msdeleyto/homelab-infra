@@ -164,6 +164,26 @@
         enabled: true
         daemon_reload: true
 
+    - name: Create the glances service file
+      ansible.builtin.template:
+        src: templates/glances-service.j2
+        dest: /etc/systemd/system/glances.service
+        mode: '0644'
+
+    - name: Install glances into its own venv
+      ansible.builtin.pip:
+        name:
+          - glances[all]
+        virtualenv: /opt/glances
+        virtualenv_command: python3 -m venv
+
+    - name: Start and enable the glances service
+      ansible.builtin.systemd_service:
+        name: glances
+        state: started
+        enabled: true
+        daemon_reload: true
+
 - name: Create the cluster
   hosts: pve_main
   tasks:
@@ -208,7 +228,6 @@
         name: "{{ hostvars[item].ansible_host }}"
         state: present
         key: "{{ lookup('pipe', 'ssh-keyscan {{ hostvars[item].ansible_host }}') }}"
-        hash_host: true
       with_items: "{{ groups['pve_workers'] }}"
 
 - name: Register main pve SSH public key

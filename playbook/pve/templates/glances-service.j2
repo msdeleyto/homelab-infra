@@ -1,0 +1,10 @@
+[Unit]
+Description=Glances monitoring tool
+Documentation=https://nicolargo.github.io/glances/
+
+[Service]
+Restart=always
+ExecStart=/opt/glances/bin/glances -w --port 61208
+
+[Install]
+WantedBy=multi-user.target
