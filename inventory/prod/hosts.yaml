@@ -2,6 +2,7 @@ local:
   hosts:
     localhost:
       ansible_connection: local
+      ansible_python_interpreter: "{{ playbook_dir }}/../../.venv/bin/python3"
 pve_main:
   hosts:
     pve01:

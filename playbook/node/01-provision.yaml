@@ -184,7 +184,6 @@
         name: "{{ hostvars[item].ansible_host }}"
         state: present
         key: "{{ lookup('pipe', 'ssh-keyscan {{ hostvars[item].ansible_host }}') }}"
-        hash_host: true
       with_items: "{{ groups['pve_workers'] }}"
 
     - name: Add VMs SSH keys to known_hosts
@@ -192,7 +191,6 @@
         name: "{{ hostvars[item].ansible_host }}"
         state: present
         key: "{{ lookup('pipe', 'ssh-keyscan {{ hostvars[item].ansible_host }}') }}"
-        hash_host: true
       with_items: "{{ groups['vms'] }}"
 
 - name: Register main pve SSH public key

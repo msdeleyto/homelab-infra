@@ -62,6 +62,7 @@
       ansible.builtin.pip:
         name:
           - kubernetes
+        extra_args: --ignore-installed PyYAML
         state: present
         break_system_packages: true
 
@@ -146,6 +147,16 @@
       ansible.builtin.command: "kubectl config use-context {{ env }}"
       register: output
       changed_when: output.rc == 0
+
+    - name: Install gateway CRDs
+      ansible.builtin.command: "kubectl apply -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.5.1/standard-install.yaml"
+      register: output
+      changed_when: output.rc != 0
+
+    - name: Delete the TLSRoute CRD to avoid conflicts with the Cilium CNI # https://github.com/cilium/cilium/issues/44920
+      ansible.builtin.command: "kubectl delete customresourcedefinitions.apiextensions.k8s.io tlsroutes.gateway.networking.k8s.io"
+      register: output
+      changed_when: output.rc != 0
 
     - name: Deploy the CNI
       block:
@@ -266,30 +277,3 @@
         snapname: "snapshot-{{ item }}"
         retention: 1
       loop: "{{ groups['vms'] }}"
-
-- name: Install cilium cli
-  hosts: localhost
-  tasks:
-    - name: Download cilium cli
-      ansible.builtin.get_url:
-        url: https://github.com/cilium/cilium-cli/releases/download/v0.19.0/cilium-linux-amd64.tar.gz
-        dest: /tmp/cilium-linux-amd64.tar.gz
-        mode: '0770'
-
-    - name: Download cilium cli checksum
-      ansible.builtin.get_url:
-        url: https://github.com/cilium/cilium-cli/releases/download/v0.19.0/cilium-linux-amd64.tar.gz.sha256sum
-        dest: /tmp/cilium-linux.tar.gz.sha256sum
-        mode: '0770'
-
-    - name: Verify cilium
-      ansible.builtin.command: sha256sum --check cilium-linux.tar.gz.sha256sum
-      args:
-        chdir: /tmp
-      register: output
-      changed_when: output.rc != 0
-
-    - name: Extract cilium
-      ansible.builtin.unarchive:
-        src: /tmp/cilium-linux-amd64.tar.gz
-        dest: "{{ lookup('env', 'HOME') }}/.local/bin"
