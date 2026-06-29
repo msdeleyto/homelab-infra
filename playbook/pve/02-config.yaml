@@ -184,6 +184,16 @@
         enabled: true
         daemon_reload: true
 
+    - name: Set CPU governor to powersave
+      ansible.builtin.copy:
+        dest: /etc/default/cpufrequtils
+        content: 'GOVERNOR="powersave"'
+
+    - name: Restart cpufrequtils service
+      ansible.builtin.systemd_service:
+        name: cpufrequtils
+        state: restarted
+
 - name: Create the cluster
   hosts: pve_main
   tasks:
